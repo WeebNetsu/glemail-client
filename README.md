@@ -1,24 +1,29 @@
-# glemail_client
+# Glemail Client
 
-[![Package Version](https://img.shields.io/hexpm/v/glemail_client)](https://hex.pm/packages/glemail_client)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/glemail_client/)
+Wildduck CLI Email Client Written in Gleam
+
+## Why?
+
+Because it's fun to code `:)`
+
+## Running
+
+Remember to [setup your env file](#env). You will also need your own wildduck instance, I recommend using [Wildduck-Dockerized](https://github.com/nodemailer/wildduck-dockerized).
 
 ```sh
-gleam add glemail_client@1
-```
-```gleam
-import glemail_client
+gleam run mailboxes list # list available mailboxes
 
-pub fn main() -> Nil {
-  // TODO: An example of the project in use
-}
+gleam run inbox 10 1 # get 10 messages from your inbox at page 1
+# or alternatively
+gleam run drafts list 5 on page 1 # for a more human-like command (from drafts mailbox)
 ```
-
-Further documentation can be found at <https://hexdocs.pm/glemail_client>.
 
 ## Development
 
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
+### Env
+
+```
+API_URL=https://yourserver.com
+ACCESS_TOKEN=superspecialsecretaccesstoken
+USER_ID=wildduckuserid
 ```
