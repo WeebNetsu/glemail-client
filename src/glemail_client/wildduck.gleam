@@ -1,12 +1,13 @@
 import dot_env/env
 import gleam/dynamic
 import gleam/dynamic/decode
+import gleam/fetch
 import gleam/http
 import gleam/http/request
 import gleam/http/response
-import gleam/httpc
 import gleam/int
 import gleam/io
+import gleam/javascript/promise
 import gleam/json
 import gleam/list
 import gleam/option
@@ -309,30 +310,53 @@ fn url_query_builder(queries: List(#(String, String))) -> String {
   }
 }
 
-pub fn http_get_request(url: String) -> Result(response.Response(String), Nil) {
-  use base_req <- result.try(request.to(url))
+// -> promise.Promise(Result(response.Response(String), WildDuckErrors)) 
+pub fn http_get_request(
+  url: String,
+) -> promise.Promise(Result(response.Response(String), fetch.FetchError)) {
+  let assert Ok(base_req) = request.to(url)
+  //   use base_req <- result.try(request.to(url))
 
   let req = request.set_method(base_req, http.Get)
 
   // Send the HTTP request to the server
-  case httpc.send(req) {
-    Ok(resp) -> {
-      let content_type = response.get_header(resp, "content-type")
-      assert content_type == Ok("application/json; charset=utf-8")
+  use resp <- promise.try_await(fetch.send(req))
+  use resp <- promise.try_await(fetch.read_text_body(resp))
 
-      Ok(resp)
-    }
-    Error(_) -> {
-      io.println_error("Could not make get request")
-      Error(Nil)
-    }
-  }
+  promise.resolve(Ok(resp))
+  // We get a response record back
+  //   resp.status
+  // -> 200
+
+  //   response.get_header(resp, "content-type")
+  // -> Ok("text/html; charset=UTF-8")
+
+  //   promise.resolve(Ok(Nil))
+  // Send the HTTP request to the server
+  //   case httpc.send(req) {
+  //     Ok(resp) -> {
+  //       let content_type = response.get_header(resp, "content-type")
+  //       assert content_type == Ok("application/json; charset=utf-8")
+
+  //       Ok(resp)
+  //     }
+  //     Error(_) -> {
+  //       io.println_error("Could not make get request")
+  //       Error(Nil)
+  //     }
+  //   }
 }
 
 // --------------- MARK: REQUESTS
-pub fn get_user_mailboxes() -> Result(
-  GetUserMailboxesResponseModel,
-  WildDuckErrors,
+//  Result(
+//   GetUserMailboxesResponseModel,
+//   WildDuckErrors,
+// )
+pub fn get_user_mailboxes() -> promise.Promise(
+  Result(
+    Result(GetUserMailboxesResponseModel, WildDuckErrors),
+    fetch.FetchError,
+  ),
 ) {
   let env_values = get_env_values()
 
@@ -345,30 +369,51 @@ pub fn get_user_mailboxes() -> Result(
       #("accessToken", env_values.access_token),
     ])
 
-  use resp <- result.try(
-    // map error into my own custom type
-    http_get_request(url) |> result.map_error(fn(_) { RequestError }),
-  )
+  use resp <- promise.try_await(http_get_request(url))
 
-  use res <- result.try(
-    json.parse(
-      from: resp.body,
-      using: decode_get_user_mailboxes_response_model(),
+  //   let z = case body {
+  //     Ok(bod) -> Ok(bod)
+  //     Error(err) -> Error(err)
+  //   }
+
+  let parsed_body =
+    result.try(
+      json.parse(
+        from: resp.body,
+        using: decode_get_user_mailboxes_response_model(),
+      )
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      fn(val) { Ok(val) },
     )
-    |> result.map_error(fn(err) {
-      echo err
-      JsonParseError
-    }),
-  )
 
-  Ok(res)
+  promise.resolve(Ok(parsed_body))
+  //   use resp <- result.try(
+  //     // map error into my own custom type
+  //     http_get_request(url) |> result.map_error(fn(_) { RequestError }),
+  //   )
+
+  //   use res <- result.try(
+  //     json.parse(
+  //       from: resp.body,
+  //       using: decode_get_user_mailboxes_response_model(),
+  //     )
+  //     |> result.map_error(fn(err) {
+  //       echo err
+  //       JsonParseError
+  //     }),
+  //   )
+
+  //   Ok(res)
 }
 
 pub fn get_messages_in_mailbox(
   mailbox_id mailbox_id: String,
   limit limit: Int,
   page page: Int,
-) -> Result(GetMessagesInMailboxResponseModel, WildDuckErrors) {
+) {
   let env_values = get_env_values()
 
   let url =
@@ -384,21 +429,25 @@ pub fn get_messages_in_mailbox(
       #("page", int.to_string(page)),
     ])
 
-  use resp <- result.try(
-    // map error into my own custom type
-    http_get_request(url) |> result.map_error(fn(_) { RequestError }),
-  )
+  //   use resp <- result.try(
+  //     // map error into my own custom type
+  //     http_get_request(url) |> result.map_error(fn(_) { RequestError }),
+  //   )
 
-  use res <- result.try(
-    json.parse(
-      from: resp.body,
-      using: decode_get_messages_in_mailbox_response_model(),
+  use resp <- promise.try_await(http_get_request(url))
+
+  let parsed_body =
+    result.try(
+      json.parse(
+        from: resp.body,
+        using: decode_get_messages_in_mailbox_response_model(),
+      )
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      fn(val) { Ok(val) },
     )
-    |> result.map_error(fn(err) {
-      echo err
-      JsonParseError
-    }),
-  )
 
-  Ok(res)
+  promise.resolve(Ok(parsed_body))
 }

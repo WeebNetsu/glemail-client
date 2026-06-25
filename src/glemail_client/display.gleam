@@ -1,5 +1,6 @@
 import gleam/int
 import gleam/io
+import gleam/javascript/promise
 import gleam/list
 import gleam/option
 import gleam/result
@@ -23,62 +24,91 @@ pub fn to_and_from(to: List(wildduck.FromToModel)) -> String {
 }
 
 pub fn messages_in_mailbox(mailbox_name: String, count: Int, page: Int) {
-  use mailboxes <- result.try(
-    wildduck.get_user_mailboxes()
-    |> result.map_error(fn(_) { io.println_error("Could not get mailboxes") }),
-  )
+  use mailboxes <- promise.try_await(wildduck.get_user_mailboxes())
 
-  use mailbox <- result.try(
-    list.find(mailboxes.results, fn(box) {
-      string.lowercase(box.name) == string.lowercase(mailbox_name)
-    })
-    |> result.map_error(fn(_) {
-      io.println_error("No mailbox named '" <> mailbox_name <> "' found")
-    }),
-  )
+  let _ = case mailboxes {
+    Ok(mailboxes) -> {
+      use mailbox <- result.try(
+        list.find(mailboxes.results, fn(box) {
+          string.lowercase(box.name) == string.lowercase(mailbox_name)
+        })
+        |> result.map_error(fn(_) {
+          io.println_error("No mailbox named '" <> mailbox_name <> "' found")
+        }),
+      )
 
-  use messages <- result.try(
-    wildduck.get_messages_in_mailbox(
-      mailbox_id: mailbox.id,
-      limit: count,
-      page:,
-    )
-    |> result.map_error(fn(_) {
-      io.println_error("Was unable to retrieve mailbox messages")
-    }),
-  )
+      promise.try_await(
+        wildduck.get_messages_in_mailbox(
+          mailbox_id: mailbox.id,
+          limit: count,
+          page:,
+        ),
+        fn(res) {
+          case res {
+            Ok(messages) -> {
+              list.each(messages.results, fn(message) {
+                io.println(
+                  "----------- MESSAGE: "
+                  <> int.to_string(message.id)
+                  <> "------------",
+                )
+                io.println("|> To: " <> to_and_from(message.to))
+                io.println("|> From: " <> to_and_from([message.from]))
+                io.println("\n|> Subject: " <> message.subject)
+                io.println("|> Intro: " <> option.unwrap(message.intro, "N/A"))
+                io.println("----------- MESSAGE END -------------\n")
+              })
 
-  list.each(messages.results, fn(message) {
-    io.println(
-      "----------- MESSAGE: " <> int.to_string(message.id) <> "------------",
-    )
-    io.println("|> To: " <> to_and_from(message.to))
-    io.println("|> From: " <> to_and_from([message.from]))
-    io.println("\n|> Subject: " <> message.subject)
-    io.println("|> Intro: " <> option.unwrap(message.intro, "N/A"))
-    io.println("----------- MESSAGE END -------------\n")
-  })
+              promise.resolve(Ok(Nil))
+            }
+            Error(_) -> {
+              io.println_error("Was unable to retrieve mailbox messages")
+              promise.resolve(Ok(Nil))
+            }
+          }
+        },
+      )
+
+      Ok(Nil)
+    }
+    Error(_) -> {
+      io.println_error("Could not get mailboxes")
+      Ok(Nil)
+    }
+  }
+
+  //   use mailboxes <- result.try(
+  //     wildduck.get_user_mailboxes()
+  //     |> result.map_error(fn(_) { io.println_error("Could not get mailboxes") }),
+  //   )
 
   // I heard we can just wrap the whole method in a result.unwrap to achieve Nil
   // return, but I think this should be fine
-  Ok(Nil)
+  promise.resolve(Ok(Nil))
 }
 
 pub fn list_mailboxes() {
-  use mailboxes <- result.try(
-    wildduck.get_user_mailboxes()
-    |> result.map_error(fn(_) { Nil }),
-  )
+  use mailboxes <- promise.try_await(wildduck.get_user_mailboxes())
 
-  list.each(mailboxes.results, fn(data) {
-    io.println("----------- Mailbox: " <> data.name <> "------------")
-    io.println("|> ID: " <> data.id)
-    io.println("|> Total: " <> int.to_string(option.unwrap(data.total, 0)))
-    io.println(
-      "|> Unseen Messages: " <> int.to_string(option.unwrap(data.unseen, 0)),
-    )
-    io.println("----------- MESSAGE END -------------\n")
-  })
+  let _ = case mailboxes {
+    Ok(mailboxes) -> {
+      list.each(mailboxes.results, fn(data) {
+        io.println("----------- Mailbox: " <> data.name <> "------------")
+        io.println("|> ID: " <> data.id)
+        io.println("|> Total: " <> int.to_string(option.unwrap(data.total, 0)))
+        io.println(
+          "|> Unseen Messages: " <> int.to_string(option.unwrap(data.unseen, 0)),
+        )
+        io.println("----------- MESSAGE END -------------\n")
+      })
 
-  Ok(Nil)
+      Ok(Nil)
+    }
+    Error(_) -> {
+      io.println_error("Could not get mailboxes")
+      Ok(Nil)
+    }
+  }
+
+  promise.resolve(Ok(Nil))
 }
