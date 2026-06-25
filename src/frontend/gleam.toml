@@ -17,6 +17,7 @@ target = "javascript"
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 lustre = ">= 5.7.0 and < 6.0.0"
 shared = { path = "../shared" }
+gleam_fetch = ">= 1.4.0 and < 2.0.0"
 
 [dev_dependencies]
 lustre_dev_tools = ">= 2.3.6 and < 3.0.0"

@@ -1,6 +1,6 @@
 # Glemail Client
 
-Wildduck CLI Email Client Written in Gleam
+Wildduck Email Client Written in Gleam
 
 ## Why?
 

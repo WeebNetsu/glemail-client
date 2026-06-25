@@ -14,6 +14,7 @@ pub type EnvValues {
 
 pub fn get_env_values() -> EnvValues {
   let api_url = result.unwrap(env.get_string("API_URL"), "")
+  //   todo: needs to be replaced with logged in/user entered value?
   let user_id = result.unwrap(env.get_string("USER_ID"), "")
   let access_token = result.unwrap(env.get_string("ACCESS_TOKEN"), "")
   let secret_key = result.unwrap(env.get_string("SECRET_KEY"), "")
