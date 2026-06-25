@@ -1,4 +1,4 @@
-import dot_env/env
+import backend/utils
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http
@@ -8,19 +8,13 @@ import gleam/httpc
 import gleam/int
 import gleam/io
 import gleam/json
-import gleam/list
 import gleam/option
 import gleam/result
-import gleam/string
 
 // ------------ MARK: TYPES
 pub type WildDuckErrors {
   RequestError
   JsonParseError
-}
-
-type EnvValues {
-  EnvValues(api_url: String, user_id: String, access_token: String)
 }
 
 pub type GetMessagesInMailboxResponseModel {
@@ -285,31 +279,8 @@ fn decode_cursor() -> decode.Decoder(option.Option(String)) {
 }
 
 // -------------- MARK: UTILS
-fn get_env_values() {
-  let api_url = result.unwrap(env.get_string("API_URL"), "")
-  let user_id = result.unwrap(env.get_string("USER_ID"), "")
-  let access_token = result.unwrap(env.get_string("ACCESS_TOKEN"), "")
 
-  EnvValues(api_url:, user_id:, access_token:)
-}
-
-fn url_query_builder(queries: List(#(String, String))) -> String {
-  let generated_queries =
-    queries
-    |> list.map(fn(query) {
-      let #(key, value) = query
-
-      key <> "=" <> value
-    })
-    |> string.join("&")
-
-  case generated_queries {
-    "" -> ""
-    _ -> "?" <> generated_queries
-  }
-}
-
-pub fn http_get_request(url: String) -> Result(response.Response(String), Nil) {
+fn http_get_request(url: String) -> Result(response.Response(String), Nil) {
   use base_req <- result.try(request.to(url))
 
   let req = request.set_method(base_req, http.Get)
@@ -334,14 +305,14 @@ pub fn get_user_mailboxes() -> Result(
   GetUserMailboxesResponseModel,
   WildDuckErrors,
 ) {
-  let env_values = get_env_values()
+  let env_values = utils.get_env_values()
 
   let url =
     env_values.api_url
     <> "/users/"
     <> env_values.user_id
     <> "/mailboxes"
-    <> url_query_builder([
+    <> utils.url_query_builder([
       #("accessToken", env_values.access_token),
     ])
 
@@ -369,7 +340,7 @@ pub fn get_messages_in_mailbox(
   limit limit: Int,
   page page: Int,
 ) -> Result(GetMessagesInMailboxResponseModel, WildDuckErrors) {
-  let env_values = get_env_values()
+  let env_values = utils.get_env_values()
 
   let url =
     env_values.api_url
@@ -378,7 +349,7 @@ pub fn get_messages_in_mailbox(
     <> "/mailboxes/"
     <> mailbox_id
     <> "/messages"
-    <> url_query_builder([
+    <> utils.url_query_builder([
       #("accessToken", env_values.access_token),
       #("limit", int.to_string(limit)),
       #("page", int.to_string(page)),

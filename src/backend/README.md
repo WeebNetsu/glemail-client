@@ -20,4 +20,5 @@ gleam run drafts list 5 on page 1 # for a more human-like command (from drafts m
 API_URL=https://yourserver.com
 ACCESS_TOKEN=superspecialsecretaccesstoken
 USER_ID=wildduckuserid
+SECRET_KEY=specialkeynoonemustknow
 ```
