@@ -1,10 +1,10 @@
+import backend/wildduck
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
-import glemail_client/wildduck
 
 pub fn to_and_from(to: List(wildduck.FromToModel)) -> String {
   case to {

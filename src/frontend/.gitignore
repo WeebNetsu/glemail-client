@@ -2,9 +2,6 @@
 *.ez
 /build
 erl_crash.dump
-.env
-build/
-
 
 #Added automatically by Lustre Dev Tools
 /.lustre
