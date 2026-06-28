@@ -1,7 +1,5 @@
-import gleam/io
 import gleam/option
 import lustre/attribute
-import lustre/dev/query
 import lustre/element
 import lustre/element/html
 

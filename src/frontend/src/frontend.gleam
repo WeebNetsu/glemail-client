@@ -1,4 +1,5 @@
-import frontend/pages
+import frontend/page/not_found
+import frontend/page/register
 import gleam/fetch
 import gleam/uri
 import lustre
@@ -22,12 +23,12 @@ type Route {
 }
 
 type Model {
-  Model(route: Route, register_page: pages.RegisterModel)
+  Model(route: Route, register_page: register.Model)
 }
 
 type Message {
   UserNavigatedTo(route: Route)
-  RegisterMsg(pages.RegisterMessage)
+  RegisterMsg(register.Message)
 }
 
 fn parse_route(link: uri.Uri) -> Route {
@@ -60,7 +61,7 @@ fn init(_flags) {
   //     |> list.map(fn(mailbox) { #(mailbox.id, mailbox) })
   //     |> dict.from_list
 
-  let model = Model(route:, register_page: pages.init_register())
+  let model = Model(route:, register_page: register.init())
 
   let effect =
     // We need to initialise modem in order for it to intercept links. To do that
@@ -80,7 +81,7 @@ fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
     UserNavigatedTo(route:) -> #(Model(..model, route:), effect.none())
     RegisterMsg(register_message) -> {
       let updated_register =
-        pages.register_update(model.register_page, register_message)
+        register.update(model.register_page, register_message)
 
       #(Model(..model, register_page: updated_register), effect.none())
     }
@@ -97,13 +98,13 @@ fn view(model: Model) -> element.Element(Message) {
     [
       case model.route {
         Index -> {
-          html.div([], pages.view_register(model.register_page))
+          html.div([], register.view(model.register_page))
           |> element.map(RegisterMsg)
         }
         // Posts -> view_posts(model)
         // PostById(post_id) -> view_post(model, post_id)
         // About -> view_about()
-        NotFound(_) -> html.div([], pages.view_not_found())
+        NotFound(_) -> html.div([], not_found.view())
       },
     ],
   )
