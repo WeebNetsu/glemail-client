@@ -29,7 +29,6 @@ pub fn init() {
   Model(username: "", password: "")
 }
 
-// MARK: Views
 pub fn view(model: Model) -> List(element.Element(Message)) {
   [
     components.div(

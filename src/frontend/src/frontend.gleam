@@ -16,9 +16,6 @@ import modem
 
 type Route {
   Index
-  //   PostById(id: Int)
-  /// It's good practice to store whatever `Uri` we failed to match in case we
-  /// want to log it or hint to the user that maybe they made a typo.
   NotFound(link: uri.Uri)
 }
 
@@ -56,17 +53,9 @@ fn init(_flags) {
     Error(_) -> Index
   }
 
-  //   let mailboxes =
-  //     response_types.GetMailboxesResponse(mailboxes: []).mailboxes
-  //     |> list.map(fn(mailbox) { #(mailbox.id, mailbox) })
-  //     |> dict.from_list
-
   let model = Model(route:, register_page: register.init())
 
   let effect =
-    // We need to initialise modem in order for it to intercept links. To do that
-    // we pass in a function that takes the `Uri` of the link that was clicked and
-    // turns it into a `Message`.
     modem.init(fn(uri) {
       uri
       |> parse_route
