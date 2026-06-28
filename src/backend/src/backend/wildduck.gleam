@@ -84,7 +84,18 @@ pub type GetUserMailboxesResponseModel {
   GetUserMailboxesResponseModel(success: Bool, results: List(MailboxModel))
 }
 
+pub type CreateUserResponseModel {
+  CreateUserResponseModel(success: Bool, id: String)
+}
+
 // --------------- MARK: DECODERS
+fn decode_create_user_response_model() {
+  use success <- decode.field("success", decode.bool)
+  use id <- decode.field("id", decode.string)
+
+  decode.success(CreateUserResponseModel(success:, id:))
+}
+
 fn decode_mailbox_model() -> decode.Decoder(MailboxModel) {
   use id <- decode.field("id", decode.string)
   use name <- decode.field("name", decode.string)
@@ -301,6 +312,58 @@ fn http_get_request(url: String) -> Result(response.Response(String), Nil) {
 }
 
 // --------------- MARK: REQUESTS
+pub fn create_user(
+  username: String,
+  password: String,
+) -> Result(CreateUserResponseModel, WildDuckErrors) {
+  let env_values = utils.get_env_values()
+
+  let url =
+    env_values.api_url
+    <> "/users"
+    <> utils.url_query_builder([
+      #("accessToken", env_values.access_token),
+    ])
+
+  use base_req <- result.try(
+    request.to(url)
+    |> result.map_error(fn(_) { RequestError }),
+  )
+
+  let req =
+    request.set_method(base_req, http.Post)
+    |> request.set_body(
+      json.to_string(
+        json.object([
+          #("username", json.string(username)),
+          #("password", json.string(password)),
+        ]),
+      ),
+    )
+
+  // Send the HTTP request to the server
+  case httpc.send(req) {
+    Ok(resp) -> {
+      let content_type = response.get_header(resp, "content-type")
+      assert content_type == Ok("application/json; charset=utf-8")
+
+      use res <- result.try(
+        json.parse(from: resp.body, using: decode_create_user_response_model())
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      )
+
+      Ok(res)
+    }
+    Error(_) -> {
+      io.println_error("Could not make get request")
+      Error(RequestError)
+    }
+  }
+}
+
 pub fn get_user_mailboxes() -> Result(
   GetUserMailboxesResponseModel,
   WildDuckErrors,

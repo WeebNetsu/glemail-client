@@ -1,3 +1,6 @@
+/// ----------------------------------------
+/// --deprecated replaced by lustre frontend
+/// ----------------------------------------
 import backend/wildduck
 import gleam/int
 import gleam/io

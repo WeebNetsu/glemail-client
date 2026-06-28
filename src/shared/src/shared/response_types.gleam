@@ -2,6 +2,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/option
 
+// MARK: Types
 pub type Mailbox {
   Mailbox(
     id: String,
@@ -15,6 +16,11 @@ pub type GetMailboxesResponse {
   GetMailboxesResponse(mailboxes: List(Mailbox))
 }
 
+pub type CreateUserBody {
+  CreateUserBody(username: String, password: String)
+}
+
+// MARK: Encode/Decode
 pub fn encode_mailbox_to_json(mailbox: Mailbox) -> json.Json {
   json.object([
     #("id", json.string(mailbox.id)),
@@ -55,7 +61,7 @@ pub fn decode_mailbox() -> decode.Decoder(Mailbox) {
 
 pub fn encode_get_mailboxes_response_to_json(
   mailboxes_response: GetMailboxesResponse,
-) {
+) -> json.Json {
   json.object([
     #(
       "mailboxes",
@@ -68,4 +74,18 @@ pub fn decode_get_mailboxes_response() -> decode.Decoder(GetMailboxesResponse) {
   use mailboxes <- decode.field("mailboxes", decode.list(decode_mailbox()))
 
   decode.success(GetMailboxesResponse(mailboxes:))
+}
+
+pub fn encode_create_user_body_to_json(body: CreateUserBody) -> json.Json {
+  json.object([
+    #("username", json.string(body.username)),
+    #("password", json.string(body.password)),
+  ])
+}
+
+pub fn decode_create_user_body() -> decode.Decoder(CreateUserBody) {
+  use username <- decode.field("username", decode.string)
+  use password <- decode.field("password", decode.string)
+
+  decode.success(CreateUserBody(username:, password:))
 }

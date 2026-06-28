@@ -1,10 +1,6 @@
-import frontend/components
+import frontend/pages
 import gleam/fetch
-import gleam/http/request
-import gleam/javascript/promise
-import gleam/json
-import gleam/list
-import gleam/result
+import gleam/uri
 import lustre
 import lustre/attribute
 import lustre/effect
@@ -12,116 +8,104 @@ import lustre/element
 import lustre/element/html
 import shared/response_types
 
+// Modem is a package providing effects and functionality for routing in SPAs.
+// This means instead of links taking you to a new page and reloading everything,
+// they are intercepted and your `update` function gets told about the new URL.
+import modem
+
+type Route {
+  Index
+  //   PostById(id: Int)
+  /// It's good practice to store whatever `Uri` we failed to match in case we
+  /// want to log it or hint to the user that maybe they made a typo.
+  NotFound(link: uri.Uri)
+}
+
+type Model {
+  Model(route: Route, register_page: pages.RegisterModel)
+}
+
+type Message {
+  UserNavigatedTo(route: Route)
+  RegisterMsg(pages.RegisterMessage)
+}
+
+fn parse_route(link: uri.Uri) -> Route {
+  case uri.path_segments(link.path) {
+    [] | [""] -> Index
+
+    // ["post", post_id] ->
+    //   case int.parse(post_id) {
+    //     Ok(post_id) -> PostById(id: post_id)
+    //     Error(_) -> NotFound(link:)
+    //   }
+    _ -> NotFound(link:)
+  }
+}
+
 pub type Msg {
   UserFetchedMailboxes(
     Result(response_types.GetMailboxesResponse, fetch.FetchError),
   )
 }
 
-fn init(_flags) -> #(response_types.GetMailboxesResponse, effect.Effect(Msg)) {
-  let model = response_types.GetMailboxesResponse(mailboxes: [])
+fn init(_flags) {
+  let route = case modem.initial_uri() {
+    Ok(uri) -> parse_route(uri)
+    Error(_) -> Index
+  }
 
-  let assert Ok(req) = request.to("http://localhost:8080/mailboxes")
+  //   let mailboxes =
+  //     response_types.GetMailboxesResponse(mailboxes: []).mailboxes
+  //     |> list.map(fn(mailbox) { #(mailbox.id, mailbox) })
+  //     |> dict.from_list
 
-  let fetch_effect =
-    effect.from(fn(dispatch) {
-      let _ = {
-        use resp <- promise.try_await(fetch.send(req))
-        use body <- promise.tap(fetch.read_text_body(resp))
-        let parsed_body = case body {
-          Ok(val) -> {
-            use res <- result.try(
-              json.parse(
-                from: val.body,
-                using: response_types.decode_get_mailboxes_response(),
-              )
-              |> result.map_error(fn(err) {
-                echo err
-                Ok(model)
-              }),
-            )
+  let model = Model(route:, register_page: pages.init_register())
 
-            Ok(res)
-          }
-          _ -> Ok(model)
-        }
-
-        case parsed_body {
-          Ok(parsed) -> {
-            dispatch(UserFetchedMailboxes(Ok(parsed)))
-          }
-          _ -> todo
-        }
-
-        promise.resolve(model)
-      }
-
-      Nil
+  let effect =
+    // We need to initialise modem in order for it to intercept links. To do that
+    // we pass in a function that takes the `Uri` of the link that was clicked and
+    // turns it into a `Message`.
+    modem.init(fn(uri) {
+      uri
+      |> parse_route
+      |> UserNavigatedTo
     })
 
-  #(model, fetch_effect)
+  #(model, effect)
 }
 
-fn update(
-  model: response_types.GetMailboxesResponse,
-  msg: Msg,
-) -> #(response_types.GetMailboxesResponse, effect.Effect(Msg)) {
-  case msg {
-    UserFetchedMailboxes(Ok(json_string)) -> {
-      // Do something with your JSON here!
-      #(json_string, effect.none())
-    }
-    UserFetchedMailboxes(Error(_err)) -> {
-      // Handle your error state here
-      #(model, effect.none())
+fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
+  case message {
+    UserNavigatedTo(route:) -> #(Model(..model, route:), effect.none())
+    RegisterMsg(register_message) -> {
+      let updated_register =
+        pages.register_update(model.register_page, register_message)
+
+      #(Model(..model, register_page: updated_register), effect.none())
     }
   }
 }
 
-fn view(model: response_types.GetMailboxesResponse) -> element.Element(Msg) {
-  components.div(
+fn view(model: Model) -> element.Element(Message) {
+  html.main(
     [
       attribute.class(
         "dark bg-gray-700 min-w-screen w-full min-h-screen h-full p-1 text-slate-100",
       ),
     ],
-    list.map(model.mailboxes, fn(mailbox) {
-      components.div([], [html.p([], [html.text(mailbox.name)])])
-    }),
-    // [
-
-  //   components.div([], [
-  //     html.p([attribute.class("text-xl font-bold")], [
-  //       html.text(shared.site_name),
-  //     ]),
-  //     components.div([attribute.class("flex-row")], [
-  //       components.button(
-  //         attributes: [
-  //           //   event.on_click(Incr),
-  //         ],
-  //         elements: [
-  //           html.p(
-  //             [
-  //               attribute.class("text-red-200"),
-  //             ],
-  //             [
-  //               html.text(" + "),
-  //             ],
-  //           ),
-  //         ],
-  //         variant: "destructive",
-  //       ),
-  //       //   html.text(count),
-  //       components.button(
-  //         elements: [html.text(" - ")],
-  //         variant: "default",
-  //         attributes: [
-  //           //   event.on_click(Decr),
-  //         ],
-  //       ),
-  //     ]),
-  //   ]),
-  // ],
+    [
+      case model.route {
+        Index -> {
+          html.div([], pages.view_register(model.register_page))
+          |> element.map(RegisterMsg)
+        }
+        // Posts -> view_posts(model)
+        // PostById(post_id) -> view_post(model, post_id)
+        // About -> view_about()
+        NotFound(_) -> html.div([], pages.view_not_found())
+      },
+    ],
   )
 }
 

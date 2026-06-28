@@ -38,6 +38,37 @@ fn mailboxes(req: wisp.Request) -> wisp.Response {
   }
 }
 
+fn users(req: wisp.Request) -> wisp.Response {
+  case req.method {
+    http.Post -> {
+      use body <- wisp.require_string_body(req)
+
+      let parsed_body =
+        json.parse(body, response_types.decode_create_user_body())
+
+      case parsed_body {
+        Ok(bod) -> {
+          case wildduck.create_user(bod.username, bod.password) {
+            Ok(resp) -> {
+              case resp.success {
+                True -> {
+                  echo resp.id
+
+                  wisp.ok()
+                }
+                False -> wisp.internal_server_error()
+              }
+            }
+            Error(_) -> wisp.internal_server_error()
+          }
+        }
+        Error(_) -> wisp.internal_server_error()
+      }
+    }
+    _ -> wisp.method_not_allowed([http.Get, http.Post])
+  }
+}
+
 fn cors_policy() {
   cors_builder.new()
   //   todo add in env
@@ -80,6 +111,7 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
   // and means you don't have to learn or be limited by a special DSL.
   case wisp.path_segments(cors_req) {
     ["mailboxes"] -> mailboxes(cors_req)
+    ["users"] -> users(cors_req)
 
     // This matches all other paths.
     _ -> wisp.not_found()
