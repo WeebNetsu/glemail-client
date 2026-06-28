@@ -7,7 +7,7 @@ import lustre/attribute
 import lustre/effect
 import lustre/element
 import lustre/element/html
-import shared/response_types
+import shared/response_type
 
 // Modem is a package providing effects and functionality for routing in SPAs.
 // This means instead of links taking you to a new page and reloading everything,
@@ -43,7 +43,7 @@ fn parse_route(link: uri.Uri) -> Route {
 
 pub type Msg {
   UserFetchedMailboxes(
-    Result(response_types.GetMailboxesResponse, fetch.FetchError),
+    Result(response_type.GetMailboxesResponse, fetch.FetchError),
   )
 }
 

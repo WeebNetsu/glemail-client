@@ -1,4 +1,4 @@
-import frontend/components
+import frontend/component
 import gleam/option
 import lustre/attribute
 import lustre/element
@@ -31,7 +31,7 @@ pub fn init() {
 
 pub fn view(model: Model) -> List(element.Element(Message)) {
   [
-    components.div(
+    component.div(
       attributes: [
         attribute.class("items-center"),
       ],
@@ -40,17 +40,17 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
           html.text("Create Account"),
         ]),
 
-        components.card(
+        component.card(
           attributes: [attribute.class("max-w-100")],
           elements: [
-            components.div(attributes: [], elements: [
-              components.div(
+            component.div(attributes: [], elements: [
+              component.div(
                 attributes: [attribute.class("flex-row items-center")],
                 elements: [
                   html.label([attribute.for("register-username-input")], [
                     html.text("Username:"),
                   ]),
-                  components.input(attributes: [
+                  component.input(attributes: [
                     attribute.id("register-username-input"),
                     attribute.placeholder("Username"),
                     attribute.value(model.username),
@@ -59,13 +59,13 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
                 ],
               ),
 
-              components.div(
+              component.div(
                 attributes: [attribute.class("flex-row items-center")],
                 elements: [
                   html.label([attribute.for("register-password-input")], [
                     html.text("Password:"),
                   ]),
-                  components.input(attributes: [
+                  component.input(attributes: [
                     attribute.id("register-password-input"),
                     attribute.type_("password"),
                     attribute.placeholder("Password"),
@@ -77,10 +77,10 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
             ]),
           ],
           actions: [
-            components.button(
+            component.button(
               attributes: [],
               elements: [html.text("Create Account")],
-              variant: components.DefaultVariant,
+              variant: component.DefaultVariant,
             ),
           ],
           title: option.None,

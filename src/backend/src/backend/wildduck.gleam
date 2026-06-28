@@ -1,4 +1,4 @@
-import backend/utils
+import backend/util
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http
@@ -316,12 +316,12 @@ pub fn create_user(
   username: String,
   password: String,
 ) -> Result(CreateUserResponseModel, WildDuckErrors) {
-  let env_values = utils.get_env_values()
+  let env_values = util.get_env_values()
 
   let url =
     env_values.api_url
     <> "/users"
-    <> utils.url_query_builder([
+    <> util.url_query_builder([
       #("accessToken", env_values.access_token),
     ])
 
@@ -368,14 +368,14 @@ pub fn get_user_mailboxes() -> Result(
   GetUserMailboxesResponseModel,
   WildDuckErrors,
 ) {
-  let env_values = utils.get_env_values()
+  let env_values = util.get_env_values()
 
   let url =
     env_values.api_url
     <> "/users/"
     <> env_values.user_id
     <> "/mailboxes"
-    <> utils.url_query_builder([
+    <> util.url_query_builder([
       #("accessToken", env_values.access_token),
     ])
 
@@ -403,7 +403,7 @@ pub fn get_messages_in_mailbox(
   limit limit: Int,
   page page: Int,
 ) -> Result(GetMessagesInMailboxResponseModel, WildDuckErrors) {
-  let env_values = utils.get_env_values()
+  let env_values = util.get_env_values()
 
   let url =
     env_values.api_url
@@ -412,7 +412,7 @@ pub fn get_messages_in_mailbox(
     <> "/mailboxes/"
     <> mailbox_id
     <> "/messages"
-    <> utils.url_query_builder([
+    <> util.url_query_builder([
       #("accessToken", env_values.access_token),
       #("limit", int.to_string(limit)),
       #("page", int.to_string(page)),

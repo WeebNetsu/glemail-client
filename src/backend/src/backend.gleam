@@ -1,5 +1,5 @@
-import backend/routes
-import backend/utils
+import backend/route
+import backend/util
 import dot_env
 import dot_env/env
 import gleam/erlang/process
@@ -59,7 +59,7 @@ pub fn load_env() -> Bool {
 pub fn main() {
   // can't continue without important env!
   assert load_env() == True
-  let env_values = utils.get_env_values()
+  let env_values = util.get_env_values()
 
   // This sets the logger to print INFO level logs, and other sensible defaults
   // for a web application.
@@ -67,7 +67,7 @@ pub fn main() {
 
   // Start the Mist web server.
   let assert Ok(_) =
-    wisp_mist.handler(routes.handle_request, env_values.secret_key)
+    wisp_mist.handler(route.handle_request, env_values.secret_key)
     |> mist.new
     |> mist.port(8080)
     |> mist.start

@@ -3,7 +3,7 @@ import cors_builder
 import gleam/http
 import gleam/json
 import gleam/list
-import shared/response_types
+import shared/response_type
 import wisp
 
 fn mailboxes(req: wisp.Request) -> wisp.Response {
@@ -14,10 +14,10 @@ fn mailboxes(req: wisp.Request) -> wisp.Response {
           wisp.ok()
           |> wisp.json_body(
             json.to_string(
-              response_types.encode_get_mailboxes_response_to_json(
-                response_types.GetMailboxesResponse(
+              response_type.encode_get_mailboxes_response_to_json(
+                response_type.GetMailboxesResponse(
                   list.map(mailboxes.results, fn(res) {
-                    response_types.Mailbox(
+                    response_type.Mailbox(
                       id: res.id,
                       name: res.name,
                       total: res.total,
@@ -44,7 +44,7 @@ fn users(req: wisp.Request) -> wisp.Response {
       use body <- wisp.require_string_body(req)
 
       let parsed_body =
-        json.parse(body, response_types.decode_create_user_body())
+        json.parse(body, response_type.decode_create_user_body())
 
       case parsed_body {
         Ok(bod) -> {
