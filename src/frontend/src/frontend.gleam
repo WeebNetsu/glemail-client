@@ -1,3 +1,4 @@
+import frontend/ffi
 import frontend/page/not_found
 import frontend/page/register
 import gleam/fetch
@@ -7,6 +8,7 @@ import lustre/attribute
 import lustre/effect
 import lustre/element
 import lustre/element/html
+import shared
 import shared/response_type
 
 // Modem is a package providing effects and functionality for routing in SPAs.
@@ -55,14 +57,17 @@ fn init(_flags) {
 
   let model = Model(route:, register_page: register.init())
 
-  let effect =
+  let title_effect = effect.from(fn(_) { ffi.set_title(shared.site_name) })
+  let modem_effect =
     modem.init(fn(uri) {
       uri
       |> parse_route
       |> UserNavigatedTo
     })
 
-  #(model, effect)
+  let batch_effect = effect.batch([modem_effect, title_effect])
+
+  #(model, batch_effect)
 }
 
 fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
