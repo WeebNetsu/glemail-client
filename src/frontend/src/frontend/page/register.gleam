@@ -10,6 +10,8 @@ import shared/validation
 pub type RegisterErrors {
   InvalidPassword
   InvalidUsername
+  UnknownError
+  CreateAccountError(String)
 }
 
 pub type Model {
@@ -26,31 +28,94 @@ pub type Message {
   CreateNewAccount
 }
 
+fn check_input_error(
+  input input: String,
+  expected_error expected_error: RegisterErrors,
+  validator validator: fn(String) -> Result(Nil, validation.ValidationError),
+) -> option.Option(RegisterErrors) {
+  case validator(input) {
+    Error(err) -> {
+      case err {
+        validation.RegexError -> option.Some(UnknownError)
+        validation.FailedRegexValidationError -> {
+          option.Some(expected_error)
+        }
+      }
+    }
+    Ok(_) -> option.None
+  }
+}
+
 pub fn update(model: Model, message: Message) -> Model {
   case message {
     RegisterUpdatedUsername(username) -> {
       let cleaned_username = string.trim(string.lowercase(username))
 
-      // don't display an error if the input is empty
-      let error = case string.length(cleaned_username) < 1 {
-        True -> option.None
-        False -> {
-          case validation.validate_username(cleaned_username) {
-            Error(_) -> {
-              option.Some(InvalidUsername)
-            }
-            Ok(_) -> option.None
-          }
+      case model.error, string.length(cleaned_username) < 1 {
+        option.Some(InvalidUsername), False -> {
+          Model(
+            ..model,
+            username: cleaned_username,
+            error: check_input_error(
+              input: cleaned_username,
+              expected_error: InvalidUsername,
+              validator: validation.validate_username,
+            ),
+          )
+        }
+        option.None, False -> {
+          Model(
+            ..model,
+            username: cleaned_username,
+            error: check_input_error(
+              input: cleaned_username,
+              expected_error: InvalidUsername,
+              validator: validation.validate_username,
+            ),
+          )
+        }
+        option.Some(InvalidUsername), True -> {
+          Model(..model, username: cleaned_username, error: option.None)
+        }
+        _, _ -> {
+          Model(..model, username: cleaned_username)
         }
       }
-
-      Model(..model, username: cleaned_username, error: error)
     }
     RegisterUpdatedPassword(password) -> {
-      Model(..model, password:, error: option.None)
+      case model.error, string.length(password) < 1 {
+        option.Some(InvalidPassword), False -> {
+          Model(
+            ..model,
+            password:,
+            error: check_input_error(
+              input: password,
+              expected_error: InvalidPassword,
+              validator: validation.validate_password,
+            ),
+          )
+        }
+        option.None, False -> {
+          Model(
+            ..model,
+            password:,
+            error: check_input_error(
+              input: password,
+              expected_error: InvalidPassword,
+              validator: validation.validate_password,
+            ),
+          )
+        }
+        option.Some(InvalidPassword), True -> {
+          Model(..model, password:, error: option.None)
+        }
+        _, _ -> {
+          Model(..model, password:)
+        }
+      }
     }
     CreateNewAccount -> {
-      todo
+      Model(..model, error: option.Some(CreateAccountError("Not implemented")))
     }
   }
 }
@@ -65,13 +130,27 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
       case error {
         InvalidPassword -> {
           component.error_p(attributes: [], elements: [
-            html.text("Invalid Password."),
+            html.text(
+              "Invalid Password. Passwords should be more than 5 and less than 121 characters and contain no spaces.",
+            ),
           ])
         }
         InvalidUsername -> {
           component.error_p(attributes: [], elements: [
             html.text(
               "Invalid Username. Usernames can only contain numbers and letters and must be between 7 and 24 characters.",
+            ),
+          ])
+        }
+        CreateAccountError(reason) -> {
+          component.error_p(attributes: [], elements: [
+            html.text("Could not create account: " <> reason),
+          ])
+        }
+        UnknownError -> {
+          component.error_p(attributes: [], elements: [
+            html.text(
+              "Unknown Error. An unknown error has occurred, please contact support.",
             ),
           ])
         }
@@ -86,12 +165,8 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
         attribute.class("items-center"),
       ],
       elements: [
-        html.p([attribute.class("text-xl font-bold")], [
-          html.text("Create Account"),
-        ]),
-
         component.card(
-          attributes: [attribute.class("max-w-100")],
+          attributes: [attribute.class("max-w-100 w-full")],
           elements: [
             component.div(attributes: [], elements: [
               component.div(
@@ -131,12 +206,19 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
           ],
           actions: [
             component.button(
-              attributes: [event.on_click(CreateNewAccount)],
+              attributes: [
+                event.on_click(CreateNewAccount),
+                attribute.disabled(
+                  model.error != option.None
+                  || string.length(model.username) < 1
+                  || string.length(model.password) < 1,
+                ),
+              ],
               elements: [html.text("Create Account")],
               variant: component.DefaultVariant,
             ),
           ],
-          title: option.None,
+          title: option.Some("Create Account"),
         ),
       ],
     ),

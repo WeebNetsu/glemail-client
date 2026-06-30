@@ -23,3 +23,18 @@ pub fn validate_username(username: String) -> Result(Nil, ValidationError) {
     False -> Error(FailedRegexValidationError)
   }
 }
+
+pub fn validate_password(username: String) -> Result(Nil, ValidationError) {
+  let clean_username = string.trim(username)
+
+  use regex <- result.try(
+    // no spaces, min len 6 max len 128
+    regexp.from_string("^\\S{6,128}$")
+    |> result.map_error(fn(_) { RegexError }),
+  )
+
+  case regexp.check(regex, clean_username) {
+    True -> Ok(Nil)
+    False -> Error(FailedRegexValidationError)
+  }
+}
