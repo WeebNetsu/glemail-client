@@ -6,6 +6,20 @@ Wildduck Email Client Written in Gleam
 
 Because it's fun to code `:)`
 
+## Dependencies
+
+| Program                                  | Cause                                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [Gleam](https://gleam.run/)              | Program is written in Gleam, silly!                                                                                       |
+| [Wildduck](https://docs.wildduck.email/) | Mail server, I recommend using [Wildduck Dockerized](https://github.com/nodemailer/wildduck-dockerized) to simplify setup |
+| [Just](https://github.com/casey/just)    | Optional but makes it easy to run everything                                                                              |
+
 ## Running
 
-Refer to src/frontend/README.md and src/backend/README.md for guidance.
+Be sure you created your `.env` file in `src/backend`.
+
+```sh
+just install # install dependencies
+just start-backend # start the backend
+just start-frontend # start the frontend
+```

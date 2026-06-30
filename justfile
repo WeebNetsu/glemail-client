@@ -1,6 +1,3 @@
-default:
-    @just --choose
-
 start-frontend:
     cd src/frontend && gleam run -m lustre/dev start
 

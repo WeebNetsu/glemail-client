@@ -16,15 +16,24 @@ pub fn load_env() -> Bool {
   |> dot_env.set_debug(False)
   |> dot_env.load
 
-  list.map(["API_URL", "ACCESS_TOKEN", "USER_ID", "SECRET_KEY"], fn(var) {
-    case env.get_string(var) {
-      Ok(_) -> True
-      Error(err) -> {
-        io.println_error("something went wrong: " <> err)
-        False
+  list.map(
+    [
+      "API_URL",
+      "ACCESS_TOKEN",
+      //   deprecated, only used for tui
+      // "USER_ID",
+      "SECRET_KEY",
+    ],
+    fn(var) {
+      case env.get_string(var) {
+        Ok(_) -> True
+        Error(err) -> {
+          io.println_error("something went wrong: " <> err)
+          False
+        }
       }
-    }
-  })
+    },
+  )
   |> list.all(fn(val) { val == True })
 }
 
