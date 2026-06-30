@@ -1,3 +1,4 @@
+import dot_env
 import frontend/ffi
 import frontend/page/not_found
 import frontend/page/register
@@ -105,6 +106,11 @@ fn view(model: Model) -> element.Element(Message) {
 }
 
 pub fn main() {
+  dot_env.new()
+  |> dot_env.set_path("./.env")
+  |> dot_env.set_debug(False)
+  |> dot_env.load
+
   let app = lustre.application(init, update, view)
   let assert Ok(_) = lustre.start(app, "#app", Nil)
 

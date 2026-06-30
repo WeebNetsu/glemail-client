@@ -1,6 +1,6 @@
 import dot_env/env
+import gleam/io
 import gleam/list
-import gleam/result
 import gleam/string
 
 pub type EnvValues {
@@ -13,19 +13,27 @@ pub type EnvValues {
 }
 
 pub fn get_env_values() -> EnvValues {
-  let api_url = result.unwrap(env.get_string("API_URL"), "")
-  //   todo: needs to be replaced with logged in/user entered value?
-  let user_id = result.unwrap(env.get_string("USER_ID"), "")
-  let access_token = result.unwrap(env.get_string("ACCESS_TOKEN"), "")
-  let secret_key = result.unwrap(env.get_string("SECRET_KEY"), "")
-
-  EnvValues(api_url:, user_id:, access_token:, secret_key:)
+  // required env variables, if they do not exist, the code can't function
+  case
+    env.get_string("API_URL"),
+    env.get_string("ACCESS_TOKEN"),
+    env.get_string("SECRET_KEY"),
+    // todo will be replaced by other values later
+    env.get_string("USER_ID")
+  {
+    Ok(api_url), Ok(access_token), Ok(secret_key), Ok(user_id) -> {
+      EnvValues(api_url:, user_id:, access_token:, secret_key:)
+    }
+    _, _, _, _ -> {
+      io.print_error("Some ENV variables are missing")
+      panic
+    }
+  }
 }
 
 pub fn url_query_builder(queries: List(#(String, String))) -> String {
   let generated_queries =
-    queries
-    |> list.map(fn(query) {
+    list.map(queries, fn(query) {
       let #(key, value) = query
 
       key <> "=" <> value
