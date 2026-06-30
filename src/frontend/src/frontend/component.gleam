@@ -8,6 +8,17 @@ pub type Variants {
   DefaultVariant
 }
 
+/// regular `<p>` tag with custom styling to display errors
+pub fn error_p(
+  attributes attributes: List(attribute.Attribute(a)),
+  elements elements: List(element.Element(a)),
+) -> element.Element(a) {
+  html.p(
+    [attribute.class("text-xs text-destructive italic"), ..attributes],
+    elements,
+  )
+}
+
 pub fn div(
   attributes attributes: List(attribute.Attribute(a)),
   elements elements: List(element.Element(a)),

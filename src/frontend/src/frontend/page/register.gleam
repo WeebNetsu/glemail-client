@@ -1,35 +1,85 @@
 import frontend/component
 import gleam/option
+import gleam/string
 import lustre/attribute
 import lustre/element
 import lustre/element/html
 import lustre/event
+import shared/validation
+
+pub type RegisterErrors {
+  InvalidPassword
+  InvalidUsername
+}
 
 pub type Model {
-  Model(username: String, password: String)
+  Model(
+    username: String,
+    password: String,
+    error: option.Option(RegisterErrors),
+  )
 }
 
 pub type Message {
   RegisterUpdatedUsername(String)
   RegisterUpdatedPassword(String)
+  CreateNewAccount
 }
 
 pub fn update(model: Model, message: Message) -> Model {
   case message {
     RegisterUpdatedUsername(username) -> {
-      Model(username:, password: model.password)
+      let cleaned_username = string.trim(string.lowercase(username))
+
+      // don't display an error if the input is empty
+      let error = case string.length(cleaned_username) < 1 {
+        True -> option.None
+        False -> {
+          case validation.validate_username(cleaned_username) {
+            Error(_) -> {
+              option.Some(InvalidUsername)
+            }
+            Ok(_) -> option.None
+          }
+        }
+      }
+
+      Model(..model, username: cleaned_username, error: error)
     }
     RegisterUpdatedPassword(password) -> {
-      Model(username: model.username, password:)
+      Model(..model, password:, error: option.None)
+    }
+    CreateNewAccount -> {
+      todo
     }
   }
 }
 
 pub fn init() {
-  Model(username: "", password: "")
+  Model(username: "", password: "", error: option.None)
 }
 
 pub fn view(model: Model) -> List(element.Element(Message)) {
+  let error_html = case model.error {
+    option.Some(error) -> {
+      case error {
+        InvalidPassword -> {
+          component.error_p(attributes: [], elements: [
+            html.text("Invalid Password."),
+          ])
+        }
+        InvalidUsername -> {
+          component.error_p(attributes: [], elements: [
+            html.text(
+              "Invalid Username. Usernames can only contain numbers and letters and must be between 7 and 24 characters.",
+            ),
+          ])
+        }
+      }
+    }
+    option.None -> element.none()
+  }
+
   [
     component.div(
       attributes: [
@@ -74,11 +124,14 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
                   ]),
                 ],
               ),
+
+              // display errors
+              error_html,
             ]),
           ],
           actions: [
             component.button(
-              attributes: [],
+              attributes: [event.on_click(CreateNewAccount)],
               elements: [html.text("Create Account")],
               variant: component.DefaultVariant,
             ),
