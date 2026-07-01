@@ -1,10 +1,17 @@
 import frontend/component
+import frontend/config
+import gleam/dynamic/decode
+import gleam/http
+import gleam/http/request
+import gleam/json
 import gleam/option
 import gleam/string
 import lustre/attribute
+import lustre/effect
 import lustre/element
 import lustre/element/html
 import lustre/event
+import rsvp
 import shared/validation
 
 pub type RegisterErrors {
@@ -25,6 +32,7 @@ pub type Model {
 pub type Message {
   RegisterUpdatedUsername(String)
   RegisterUpdatedPassword(String)
+  ApiCreatedNewAccount(Result(Int, rsvp.Error(String)))
   CreateNewAccount
 }
 
@@ -46,82 +54,208 @@ fn check_input_error(
   }
 }
 
-pub fn update(model: Model, message: Message) -> Model {
+fn handle_create_user(
+  on_response handle_response: fn(Result(Int, rsvp.Error(String))) -> message,
+) -> effect.Effect(message) {
+  let handler = rsvp.expect_json(decode.success(1), handle_response)
+  echo "started"
+
+  let url = config.api_url <> "/users"
+
+  rsvp.post(url, json.object([]), handler)
+  //   case request.to(url) {
+  //     Ok(request) -> {
+  //       echo "OK HIT"
+
+  //       //   let r =
+  //       //     request
+  //       //     |> request.set_method(http.Post)
+  //       //     //   |> request.set_body(json.to_string(body))
+  //       //     |> rsvp.send(handler)
+
+  //     }
+
+  //     Error(_) -> panic as { "Failed to create request to " <> url }
+  //   }
+}
+
+// pub fn handle_create_user() {
+//   let env = util.get_env_values()
+
+//   case request.to(env.api_url <> "/users") {
+//     Ok(req) -> {
+//       // promise.try_await(fetch.send(req))
+//       let req = request.set_method(req, http.Post)
+
+//       use resp <- promise.tap(fetch.send(req))
+
+//       case resp {
+//         Ok(respp) -> {
+//           let _ = case respp.status == 200 {
+//             True -> echo "Request made"
+//             False -> echo "Request failed"
+//           }
+//         }
+//         Error(_) -> todo
+//       }
+//       // promise.tap(fetch.read_text_body(resp), fn(body) {
+//       //   case body {
+//       //     Ok(val) -> {
+//       //       result.try(json.parse(from: val.body, using: todo))
+//       //     }
+//       //     Error(_) -> todo
+//       //   }
+//       // })
+//       //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
+//     }
+//     Error(_) -> {
+//       todo
+//       //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
+//     }
+//   }
+//   //   let _ = {
+//   //     use resp <- promise.try_await(fetch.send(req))
+//   //     use body <- promise.tap(fetch.read_text_body(resp))
+//   //     let parsed_body = case body {
+//   //       Ok(val) -> {
+//   //         use res <- result.try(
+//   //           json.parse(
+//   //             from: val.body,
+//   //             using: response_types.decode_get_mailboxes_response(),
+//   //           )
+//   //           |> result.map_error(fn(err) {
+//   //             echo err
+//   //             Ok(model)
+//   //           }),
+//   //         )
+
+//   //         Ok(res)
+//   //       }
+//   //       _ -> Ok(model)
+//   //     }
+
+//   //     case parsed_body {
+//   //       Ok(parsed) -> {
+//   //         dispatch(UserFetchedMailboxes(Ok(parsed)))
+//   //       }
+//   //       _ -> todo
+//   //     }
+
+//   //     promise.resolve(model)
+//   //   }
+
+//   //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
+// }
+
+pub fn update(
+  model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   case message {
     RegisterUpdatedUsername(username) -> {
       let cleaned_username = string.trim(string.lowercase(username))
 
       case model.error, string.length(cleaned_username) < 1 {
         option.Some(InvalidUsername), False -> {
-          Model(
-            ..model,
-            username: cleaned_username,
-            error: check_input_error(
-              input: cleaned_username,
-              expected_error: InvalidUsername,
-              validator: validation.validate_username,
+          #(
+            Model(
+              ..model,
+              username: cleaned_username,
+              error: check_input_error(
+                input: cleaned_username,
+                expected_error: InvalidUsername,
+                validator: validation.validate_username,
+              ),
             ),
+            effect.none(),
           )
         }
         option.None, False -> {
-          Model(
-            ..model,
-            username: cleaned_username,
-            error: check_input_error(
-              input: cleaned_username,
-              expected_error: InvalidUsername,
-              validator: validation.validate_username,
+          #(
+            Model(
+              ..model,
+              username: cleaned_username,
+              error: check_input_error(
+                input: cleaned_username,
+                expected_error: InvalidUsername,
+                validator: validation.validate_username,
+              ),
             ),
+            effect.none(),
           )
         }
         option.Some(InvalidUsername), True -> {
-          Model(..model, username: cleaned_username, error: option.None)
+          #(
+            Model(..model, username: cleaned_username, error: option.None),
+            effect.none(),
+          )
         }
         _, _ -> {
-          Model(..model, username: cleaned_username)
+          #(Model(..model, username: cleaned_username), effect.none())
         }
       }
     }
     RegisterUpdatedPassword(password) -> {
       case model.error, string.length(password) < 1 {
         option.Some(InvalidPassword), False -> {
-          Model(
-            ..model,
-            password:,
-            error: check_input_error(
-              input: password,
-              expected_error: InvalidPassword,
-              validator: validation.validate_password,
+          #(
+            Model(
+              ..model,
+              password:,
+              error: check_input_error(
+                input: password,
+                expected_error: InvalidPassword,
+                validator: validation.validate_password,
+              ),
             ),
+            effect.none(),
           )
         }
         option.None, False -> {
-          Model(
-            ..model,
-            password:,
-            error: check_input_error(
-              input: password,
-              expected_error: InvalidPassword,
-              validator: validation.validate_password,
+          #(
+            Model(
+              ..model,
+              password:,
+              error: check_input_error(
+                input: password,
+                expected_error: InvalidPassword,
+                validator: validation.validate_password,
+              ),
             ),
+            effect.none(),
           )
         }
         option.Some(InvalidPassword), True -> {
-          Model(..model, password:, error: option.None)
+          #(Model(..model, password:, error: option.None), effect.none())
         }
         _, _ -> {
-          Model(..model, password:)
+          #(Model(..model, password:), effect.none())
         }
       }
     }
+    ApiCreatedNewAccount(val) -> {
+      echo "I WAS FINISHED"
+      echo val
+      #(model, effect.none())
+    }
     CreateNewAccount -> {
-      Model(..model, error: option.Some(CreateAccountError("Not implemented")))
+      //   let effect =
+      //     effect.from_anonymous_promise(fn(dispatch) {
+      //       promise.try_await(handle_create_user(), fn(res) {
+      //         // 3. Instead of returning a model here, DISPATCH the result message
+      //         dispatch(UserAccountResponse(res))
+      //       })
+      //     })
+
+      //   promise.try_await(handle_create_user(), fn(res) {
+      #(model, handle_create_user(ApiCreatedNewAccount))
+      //   })
     }
   }
 }
 
-pub fn init() {
-  Model(username: "", password: "", error: option.None)
+pub fn init() -> #(Model, effect.Effect(Message)) {
+  #(Model(username: "", password: "", error: option.None), effect.none())
 }
 
 pub fn view(model: Model) -> List(element.Element(Message)) {

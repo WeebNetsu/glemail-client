@@ -1,4 +1,3 @@
-import dot_env
 import frontend/ffi
 import frontend/page/not_found
 import frontend/page/register
@@ -56,7 +55,9 @@ fn init(_flags) {
     Error(_) -> Index
   }
 
-  let model = Model(route:, register_page: register.init())
+  let #(register_page_model, register_page_effect) = register.init()
+
+  let model = Model(route:, register_page: register_page_model)
 
   let title_effect = effect.from(fn(_) { ffi.set_title(shared.site_name) })
   let modem_effect =
@@ -66,7 +67,12 @@ fn init(_flags) {
       |> UserNavigatedTo
     })
 
-  let batch_effect = effect.batch([modem_effect, title_effect])
+  let batch_effect =
+    effect.batch([
+      modem_effect,
+      title_effect,
+      effect.map(register_page_effect, RegisterMsg),
+    ])
 
   #(model, batch_effect)
 }
@@ -75,10 +81,13 @@ fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
   case message {
     UserNavigatedTo(route:) -> #(Model(..model, route:), effect.none())
     RegisterMsg(register_message) -> {
-      let updated_register =
+      let #(updated_register, register_effect) =
         register.update(model.register_page, register_message)
 
-      #(Model(..model, register_page: updated_register), effect.none())
+      #(
+        Model(..model, register_page: updated_register),
+        effect.map(register_effect, RegisterMsg),
+      )
     }
   }
 }
@@ -106,11 +115,6 @@ fn view(model: Model) -> element.Element(Message) {
 }
 
 pub fn main() {
-  dot_env.new()
-  |> dot_env.set_path("./.env")
-  |> dot_env.set_debug(False)
-  |> dot_env.load
-
   let app = lustre.application(init, update, view)
   let assert Ok(_) = lustre.start(app, "#app", Nil)
 
