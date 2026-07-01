@@ -16,7 +16,7 @@ Because it's fun to code `:)`
 
 ## Running
 
-Be sure you created your `.env` file in `src/backend` and `src/frontend`.
+Be sure you created your `.env` file in `src/backend`, and updated config.gleam in `src/frontend`.
 
 ```sh
 just install # install dependencies
