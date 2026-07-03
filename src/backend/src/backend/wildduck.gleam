@@ -15,6 +15,7 @@ import gleam/result
 pub type WildDuckErrors {
   RequestError
   JsonParseError
+  WildduckError(error: String, code: String)
 }
 
 pub type GetMessagesInMailboxResponseModel {
@@ -94,6 +95,13 @@ fn decode_create_user_response_model() {
   use id <- decode.field("id", decode.string)
 
   decode.success(CreateUserResponseModel(success:, id:))
+}
+
+fn decode_wildduck_error_response_model() {
+  use error <- decode.field("error", decode.string)
+  use code <- decode.field("code", decode.string)
+
+  decode.success(WildduckError(error:, code:))
 }
 
 fn decode_mailbox_model() -> decode.Decoder(MailboxModel) {
@@ -332,6 +340,7 @@ pub fn create_user(
 
   let req =
     request.set_method(base_req, http.Post)
+    |> request.set_header("content-type", "application/json")
     |> request.set_body(
       json.to_string(
         json.object([
@@ -344,18 +353,40 @@ pub fn create_user(
   // Send the HTTP request to the server
   case httpc.send(req) {
     Ok(resp) -> {
-      let content_type = response.get_header(resp, "content-type")
-      assert content_type == Ok("application/json; charset=utf-8")
+      //   let content_type = response.get_header(resp, "content-type")
+      //   echo content_type
+      //   assert content_type == Ok("application/json; charset=utf-8")
 
-      use res <- result.try(
-        json.parse(from: resp.body, using: decode_create_user_response_model())
-        |> result.map_error(fn(err) {
-          echo err
-          JsonParseError
-        }),
-      )
+      let _ = case resp.status {
+        200 -> {
+          use res <- result.try(
+            json.parse(
+              from: resp.body,
+              using: decode_create_user_response_model(),
+            )
+            |> result.map_error(fn(err) {
+              echo err
+              JsonParseError
+            }),
+          )
 
-      Ok(res)
+          Ok(res)
+        }
+        _ -> {
+          use res <- result.try(
+            json.parse(
+              from: resp.body,
+              using: decode_wildduck_error_response_model(),
+            )
+            |> result.map_error(fn(err) {
+              echo err
+              JsonParseError
+            }),
+          )
+
+          Error(res)
+        }
+      }
     }
     Error(_) -> {
       io.println_error("Could not make get request")

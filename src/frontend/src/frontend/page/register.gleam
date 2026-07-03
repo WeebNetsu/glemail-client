@@ -55,97 +55,23 @@ fn check_input_error(
 }
 
 fn handle_create_user(
+  model model: Model,
   on_response handle_response: fn(Result(Int, rsvp.Error(String))) -> message,
 ) -> effect.Effect(message) {
-  let handler = rsvp.expect_json(decode.success(1), handle_response)
+  let handler = rsvp.expect_json(decode.success(200), handle_response)
   echo "started"
 
   let url = config.api_url <> "/users"
 
-  rsvp.post(url, json.object([]), handler)
-  //   case request.to(url) {
-  //     Ok(request) -> {
-  //       echo "OK HIT"
-
-  //       //   let r =
-  //       //     request
-  //       //     |> request.set_method(http.Post)
-  //       //     //   |> request.set_body(json.to_string(body))
-  //       //     |> rsvp.send(handler)
-
-  //     }
-
-  //     Error(_) -> panic as { "Failed to create request to " <> url }
-  //   }
+  rsvp.post(
+    url,
+    json.object([
+      #("username", json.string(model.username)),
+      #("password", json.string(model.password)),
+    ]),
+    handler,
+  )
 }
-
-// pub fn handle_create_user() {
-//   let env = util.get_env_values()
-
-//   case request.to(env.api_url <> "/users") {
-//     Ok(req) -> {
-//       // promise.try_await(fetch.send(req))
-//       let req = request.set_method(req, http.Post)
-
-//       use resp <- promise.tap(fetch.send(req))
-
-//       case resp {
-//         Ok(respp) -> {
-//           let _ = case respp.status == 200 {
-//             True -> echo "Request made"
-//             False -> echo "Request failed"
-//           }
-//         }
-//         Error(_) -> todo
-//       }
-//       // promise.tap(fetch.read_text_body(resp), fn(body) {
-//       //   case body {
-//       //     Ok(val) -> {
-//       //       result.try(json.parse(from: val.body, using: todo))
-//       //     }
-//       //     Error(_) -> todo
-//       //   }
-//       // })
-//       //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
-//     }
-//     Error(_) -> {
-//       todo
-//       //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
-//     }
-//   }
-//   //   let _ = {
-//   //     use resp <- promise.try_await(fetch.send(req))
-//   //     use body <- promise.tap(fetch.read_text_body(resp))
-//   //     let parsed_body = case body {
-//   //       Ok(val) -> {
-//   //         use res <- result.try(
-//   //           json.parse(
-//   //             from: val.body,
-//   //             using: response_types.decode_get_mailboxes_response(),
-//   //           )
-//   //           |> result.map_error(fn(err) {
-//   //             echo err
-//   //             Ok(model)
-//   //           }),
-//   //         )
-
-//   //         Ok(res)
-//   //       }
-//   //       _ -> Ok(model)
-//   //     }
-
-//   //     case parsed_body {
-//   //       Ok(parsed) -> {
-//   //         dispatch(UserFetchedMailboxes(Ok(parsed)))
-//   //       }
-//   //       _ -> todo
-//   //     }
-
-//   //     promise.resolve(model)
-//   //   }
-
-//   //   Model(..model, error: option.Some(CreateAccountError("Not implemented")))
-// }
 
 pub fn update(
   model: Model,
@@ -239,17 +165,10 @@ pub fn update(
       #(model, effect.none())
     }
     CreateNewAccount -> {
-      //   let effect =
-      //     effect.from_anonymous_promise(fn(dispatch) {
-      //       promise.try_await(handle_create_user(), fn(res) {
-      //         // 3. Instead of returning a model here, DISPATCH the result message
-      //         dispatch(UserAccountResponse(res))
-      //       })
-      //     })
-
-      //   promise.try_await(handle_create_user(), fn(res) {
-      #(model, handle_create_user(ApiCreatedNewAccount))
-      //   })
+      #(
+        model,
+        handle_create_user(model: model, on_response: ApiCreatedNewAccount),
+      )
     }
   }
 }

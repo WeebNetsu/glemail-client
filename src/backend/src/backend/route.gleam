@@ -1,6 +1,8 @@
+import backend/util
 import backend/wildduck
 import cors_builder
 import gleam/http
+import gleam/http/response
 import gleam/json
 import gleam/list
 import shared/response_type
@@ -59,7 +61,14 @@ fn users(req: wisp.Request) -> wisp.Response {
                 False -> wisp.internal_server_error()
               }
             }
-            Error(_) -> wisp.internal_server_error()
+            Error(err) -> {
+              case err {
+                wildduck.WildduckError(error, _) -> {
+                  wisp.json_response(error, 500)
+                }
+                _ -> wisp.internal_server_error()
+              }
+            }
           }
         }
         Error(_) -> wisp.internal_server_error()
@@ -69,13 +78,13 @@ fn users(req: wisp.Request) -> wisp.Response {
   }
 }
 
-fn cors_policy() {
+fn cors_policy() -> cors_builder.Cors {
   cors_builder.new()
-  //   todo add in env
-  |> cors_builder.allow_origin("http://localhost:1234")
-  |> cors_builder.allow_method(http.Get)
-  //   |> cors_builder.allow_method(http.Post)
+  |> cors_builder.allow_origin(util.get_env_values().client_url)
   |> cors_builder.allow_header("content-type")
+  |> cors_builder.allow_method(http.Get)
+  |> cors_builder.allow_method(http.Post)
+  |> cors_builder.allow_method(http.Options)
 }
 
 fn middleware(
@@ -85,33 +94,31 @@ fn middleware(
   // Permit browsers to simulate methods other than GET and POST using the
   // `_method` query parameter.
   let req = wisp.method_override(req)
-
   // Log information about the request and response.
   use <- wisp.log_request(req)
-
   // Return a default 500 response if the request handler crashes.
   use <- wisp.rescue_crashes
-
   // Rewrite HEAD requests to GET requests and return an empty body.
   use req <- wisp.handle_head(req)
 
   // Known-header based CSRF protection for non-HEAD/GET requests
-  use req <- wisp.csrf_known_header_protection(req)
+  //   use req <- wisp.csrf_known_header_protection(req)
 
   // Handle the request!
   request_handler(req)
 }
 
 pub fn handle_request(req: wisp.Request) -> wisp.Response {
-  use req <- middleware(req)
+  // order is important, do cors before middleware
   use cors_req <- cors_builder.wisp_middleware(req, cors_policy())
+  use middleware_req <- middleware(cors_req)
 
   // Wisp doesn't have a special router abstraction, instead we recommend using
   // regular old pattern matching. This is faster than a router, is type safe,
   // and means you don't have to learn or be limited by a special DSL.
-  case wisp.path_segments(cors_req) {
-    ["mailboxes"] -> mailboxes(cors_req)
-    ["users"] -> users(cors_req)
+  case wisp.path_segments(middleware_req) {
+    ["mailboxes"] -> mailboxes(middleware_req)
+    ["users"] -> users(middleware_req)
 
     // This matches all other paths.
     _ -> wisp.not_found()
