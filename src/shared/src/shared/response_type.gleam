@@ -20,6 +20,10 @@ pub type CreateUserBody {
   CreateUserBody(username: String, password: String)
 }
 
+pub type ErrorBody {
+  ErrorBody(reason: String)
+}
+
 // MARK: Encode/Decode
 pub fn encode_mailbox_to_json(mailbox: Mailbox) -> json.Json {
   json.object([
@@ -88,4 +92,14 @@ pub fn decode_create_user_body() -> decode.Decoder(CreateUserBody) {
   use password <- decode.field("password", decode.string)
 
   decode.success(CreateUserBody(username:, password:))
+}
+
+pub fn encode_error_to_json(error: ErrorBody) -> json.Json {
+  json.object([#("error", json.string(error.reason))])
+}
+
+pub fn decode_error_body() -> decode.Decoder(ErrorBody) {
+  use error <- decode.field("error", decode.string)
+
+  decode.success(ErrorBody(reason: error))
 }

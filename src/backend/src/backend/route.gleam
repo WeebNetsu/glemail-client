@@ -2,9 +2,9 @@ import backend/util
 import backend/wildduck
 import cors_builder
 import gleam/http
-import gleam/http/response
 import gleam/json
 import gleam/list
+import gleam/result
 import shared/response_type
 import wisp
 
@@ -40,41 +40,41 @@ fn mailboxes(req: wisp.Request) -> wisp.Response {
   }
 }
 
+fn handle_create_user(body: String) -> Result(String, wisp.Response) {
+  use parsed_body <- result.try(
+    json.parse(body, response_type.decode_create_user_body())
+    |> result.map_error(fn(_) { wisp.internal_server_error() }),
+  )
+
+  case wildduck.create_user(parsed_body.username, parsed_body.password) {
+    // ok but only if response was considered successful
+    Ok(resp) if resp.success -> Ok(resp.id)
+    // error but only if error was provided
+    Error(wildduck.WildduckError(error, _)) -> {
+      Error(wisp.json_response(
+        json.to_string(
+          response_type.encode_error_to_json(response_type.ErrorBody(
+            reason: error,
+          )),
+        ),
+        500,
+      ))
+    }
+    _ -> Error(wisp.internal_server_error())
+  }
+}
+
 fn users(req: wisp.Request) -> wisp.Response {
   case req.method {
     http.Post -> {
       use body <- wisp.require_string_body(req)
 
-      let parsed_body =
-        json.parse(body, response_type.decode_create_user_body())
-
-      case parsed_body {
-        Ok(bod) -> {
-          case wildduck.create_user(bod.username, bod.password) {
-            Ok(resp) -> {
-              case resp.success {
-                True -> {
-                  echo resp.id
-
-                  wisp.ok()
-                }
-                False -> wisp.internal_server_error()
-              }
-            }
-            Error(err) -> {
-              case err {
-                wildduck.WildduckError(error, _) -> {
-                  wisp.json_response(error, 500)
-                }
-                _ -> wisp.internal_server_error()
-              }
-            }
-          }
-        }
-        Error(_) -> wisp.internal_server_error()
+      case handle_create_user(body) {
+        Ok(_) -> wisp.ok()
+        Error(err) -> err
       }
     }
-    _ -> wisp.method_not_allowed([http.Get, http.Post])
+    _ -> wisp.method_not_allowed(allowed: [http.Post])
   }
 }
 

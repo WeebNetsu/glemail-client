@@ -352,41 +352,30 @@ pub fn create_user(
 
   // Send the HTTP request to the server
   case httpc.send(req) {
+    Ok(resp) if resp.status == 200 -> {
+      use res <- result.try(
+        json.parse(from: resp.body, using: decode_create_user_response_model())
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      )
+
+      Ok(res)
+    }
     Ok(resp) -> {
-      //   let content_type = response.get_header(resp, "content-type")
-      //   echo content_type
-      //   assert content_type == Ok("application/json; charset=utf-8")
+      use res <- result.try(
+        json.parse(
+          from: resp.body,
+          using: decode_wildduck_error_response_model(),
+        )
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      )
 
-      let _ = case resp.status {
-        200 -> {
-          use res <- result.try(
-            json.parse(
-              from: resp.body,
-              using: decode_create_user_response_model(),
-            )
-            |> result.map_error(fn(err) {
-              echo err
-              JsonParseError
-            }),
-          )
-
-          Ok(res)
-        }
-        _ -> {
-          use res <- result.try(
-            json.parse(
-              from: resp.body,
-              using: decode_wildduck_error_response_model(),
-            )
-            |> result.map_error(fn(err) {
-              echo err
-              JsonParseError
-            }),
-          )
-
-          Error(res)
-        }
-      }
+      Error(res)
     }
     Error(_) -> {
       io.println_error("Could not make get request")

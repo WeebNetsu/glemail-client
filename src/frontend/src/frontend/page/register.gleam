@@ -1,8 +1,5 @@
 import frontend/component
 import frontend/config
-import gleam/dynamic/decode
-import gleam/http
-import gleam/http/request
 import gleam/json
 import gleam/option
 import gleam/string
@@ -12,6 +9,7 @@ import lustre/element
 import lustre/element/html
 import lustre/event
 import rsvp
+import shared/response_type
 import shared/validation
 
 pub type RegisterErrors {
@@ -26,13 +24,15 @@ pub type Model {
     username: String,
     password: String,
     error: option.Option(RegisterErrors),
+    success: Bool,
+    loading: Bool,
   )
 }
 
 pub type Message {
   RegisterUpdatedUsername(String)
   RegisterUpdatedPassword(String)
-  ApiCreatedNewAccount(Result(Int, rsvp.Error(String)))
+  ApiCreatedNewAccount(Result(String, rsvp.Error(String)))
   CreateNewAccount
 }
 
@@ -56,9 +56,9 @@ fn check_input_error(
 
 fn handle_create_user(
   model model: Model,
-  on_response handle_response: fn(Result(Int, rsvp.Error(String))) -> message,
+  on_response handle_response: fn(Result(String, rsvp.Error(String))) -> message,
 ) -> effect.Effect(message) {
-  let handler = rsvp.expect_json(decode.success(200), handle_response)
+  let handler = rsvp.expect_text(handle_response)
   echo "started"
 
   let url = config.api_url <> "/users"
@@ -160,13 +160,56 @@ pub fn update(
       }
     }
     ApiCreatedNewAccount(val) -> {
-      echo "I WAS FINISHED"
-      echo val
-      #(model, effect.none())
+      case val {
+        Ok(_) -> {
+          #(
+            Model(..model, error: option.None, success: True, loading: False),
+            effect.none(),
+          )
+        }
+        Error(rsvp.HttpError(err)) -> {
+          case json.parse(err.body, response_type.decode_error_body()) {
+            Ok(err) -> {
+              #(
+                Model(
+                  ..model,
+                  error: option.Some(CreateAccountError(err.reason)),
+                  loading: False,
+                ),
+                effect.none(),
+              )
+            }
+            Error(_) -> {
+              #(
+                Model(
+                  ..model,
+                  error: option.Some(CreateAccountError(
+                    "Invalid response received",
+                  )),
+                  loading: False,
+                ),
+                effect.none(),
+              )
+            }
+          }
+        }
+        _ -> {
+          echo val
+
+          #(
+            Model(
+              ..model,
+              error: option.Some(CreateAccountError("Unknown response received")),
+              loading: False,
+            ),
+            effect.none(),
+          )
+        }
+      }
     }
     CreateNewAccount -> {
       #(
-        model,
+        Model(..model, error: option.None, success: False, loading: True),
         handle_create_user(model: model, on_response: ApiCreatedNewAccount),
       )
     }
@@ -174,11 +217,83 @@ pub fn update(
 }
 
 pub fn init() -> #(Model, effect.Effect(Message)) {
-  #(Model(username: "", password: "", error: option.None), effect.none())
+  #(
+    Model(
+      username: "",
+      password: "",
+      error: option.None,
+      success: False,
+      loading: False,
+    ),
+    effect.none(),
+  )
+}
+
+fn render_register(
+  model model: Model,
+  success_message success_message: element.Element(Message),
+  error_message error_message: element.Element(Message),
+) {
+  [
+    component.card(
+      attributes: [attribute.class("max-w-100 w-full")],
+      elements: [
+        component.div(attributes: [], elements: [
+          component.div(
+            attributes: [attribute.class("flex-row items-center")],
+            elements: [
+              html.label([attribute.for("register-username-input")], [
+                html.text("Username:"),
+              ]),
+              component.input(attributes: [
+                attribute.id("register-username-input"),
+                attribute.placeholder("Username"),
+                attribute.value(model.username),
+                event.on_input(RegisterUpdatedUsername),
+              ]),
+            ],
+          ),
+
+          component.div(
+            attributes: [attribute.class("flex-row items-center")],
+            elements: [
+              html.label([attribute.for("register-password-input")], [
+                html.text("Password:"),
+              ]),
+              component.input(attributes: [
+                attribute.id("register-password-input"),
+                attribute.type_("password"),
+                attribute.placeholder("Password"),
+                attribute.value(model.password),
+                event.on_input(RegisterUpdatedPassword),
+              ]),
+            ],
+          ),
+
+          success_message,
+          error_message,
+        ]),
+      ],
+      actions: [
+        component.button(
+          attributes: [
+            event.on_click(CreateNewAccount),
+            attribute.disabled(
+              string.length(model.username) < 1
+              || string.length(model.password) < 1,
+            ),
+          ],
+          elements: [html.text("Create Account")],
+          variant: component.DefaultVariant,
+        ),
+      ],
+      title: option.Some("Create Account"),
+    ),
+  ]
 }
 
 pub fn view(model: Model) -> List(element.Element(Message)) {
-  let error_html = case model.error {
+  let error_message = case model.error {
     option.Some(error) -> {
       case error {
         InvalidPassword -> {
@@ -212,68 +327,24 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
     option.None -> element.none()
   }
 
+  // later we'll probably just redirect instead of showing a message
+  let success_message = case model.success {
+    True ->
+      component.success_p(attributes: [], elements: [
+        html.text("Account Created!"),
+      ])
+    False -> element.none()
+  }
+
   [
     component.div(
       attributes: [
         attribute.class("items-center"),
       ],
-      elements: [
-        component.card(
-          attributes: [attribute.class("max-w-100 w-full")],
-          elements: [
-            component.div(attributes: [], elements: [
-              component.div(
-                attributes: [attribute.class("flex-row items-center")],
-                elements: [
-                  html.label([attribute.for("register-username-input")], [
-                    html.text("Username:"),
-                  ]),
-                  component.input(attributes: [
-                    attribute.id("register-username-input"),
-                    attribute.placeholder("Username"),
-                    attribute.value(model.username),
-                    event.on_input(RegisterUpdatedUsername),
-                  ]),
-                ],
-              ),
-
-              component.div(
-                attributes: [attribute.class("flex-row items-center")],
-                elements: [
-                  html.label([attribute.for("register-password-input")], [
-                    html.text("Password:"),
-                  ]),
-                  component.input(attributes: [
-                    attribute.id("register-password-input"),
-                    attribute.type_("password"),
-                    attribute.placeholder("Password"),
-                    attribute.value(model.password),
-                    event.on_input(RegisterUpdatedPassword),
-                  ]),
-                ],
-              ),
-
-              // display errors
-              error_html,
-            ]),
-          ],
-          actions: [
-            component.button(
-              attributes: [
-                event.on_click(CreateNewAccount),
-                attribute.disabled(
-                  model.error != option.None
-                  || string.length(model.username) < 1
-                  || string.length(model.password) < 1,
-                ),
-              ],
-              elements: [html.text("Create Account")],
-              variant: component.DefaultVariant,
-            ),
-          ],
-          title: option.Some("Create Account"),
-        ),
-      ],
+      elements: case model.loading {
+        True -> [component.loader()]
+        False -> render_register(model: model, success_message:, error_message:)
+      },
     ),
   ]
 }

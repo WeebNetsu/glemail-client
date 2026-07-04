@@ -19,6 +19,24 @@ pub fn error_p(
   )
 }
 
+pub fn success_p(
+  attributes attributes: List(attribute.Attribute(a)),
+  elements elements: List(element.Element(a)),
+) -> element.Element(a) {
+  html.p([attribute.class("text-green-500 italic"), ..attributes], elements)
+}
+
+pub fn loader() -> element.Element(a) {
+  html.div(
+    [
+      attribute.class(
+        "h-5 w-5 animate-spin rounded-full border-4 border-gray-200 border-t-blue-500",
+      ),
+    ],
+    [],
+  )
+}
+
 pub fn div(
   attributes attributes: List(attribute.Attribute(a)),
   elements elements: List(element.Element(a)),
