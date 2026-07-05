@@ -1,3 +1,4 @@
+import backend/db
 import backend/util
 import gleam/dynamic
 import gleam/dynamic/decode
@@ -15,6 +16,7 @@ import gleam/result
 pub type WildDuckErrors {
   RequestError
   JsonParseError
+  DatabaseError(error: String)
   WildduckError(error: String, code: String)
 }
 
@@ -361,7 +363,12 @@ pub fn create_user(
         }),
       )
 
-      Ok(res)
+      case db.create_user(username:, password:, email_id: res.id) {
+        Ok(_) -> Ok(res)
+        Error(err) -> {
+          Error(DatabaseError(err.message))
+        }
+      }
     }
     Ok(resp) -> {
       use res <- result.try(

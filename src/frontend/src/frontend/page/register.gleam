@@ -54,25 +54,6 @@ fn check_input_error(
   }
 }
 
-fn handle_create_user(
-  model model: Model,
-  on_response handle_response: fn(Result(String, rsvp.Error(String))) -> message,
-) -> effect.Effect(message) {
-  let handler = rsvp.expect_text(handle_response)
-  echo "started"
-
-  let url = config.api_url <> "/users"
-
-  rsvp.post(
-    url,
-    json.object([
-      #("username", json.string(model.username)),
-      #("password", json.string(model.password)),
-    ]),
-    handler,
-  )
-}
-
 pub fn update(
   model: Model,
   message: Message,
@@ -210,7 +191,14 @@ pub fn update(
     CreateNewAccount -> {
       #(
         Model(..model, error: option.None, success: False, loading: True),
-        handle_create_user(model: model, on_response: ApiCreatedNewAccount),
+        rsvp.post(
+          config.api_url <> "/users",
+          json.object([
+            #("username", json.string(model.username)),
+            #("password", json.string(model.password)),
+          ]),
+          rsvp.expect_text(ApiCreatedNewAccount),
+        ),
       )
     }
   }
