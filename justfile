@@ -1,4 +1,8 @@
+build-ts:
+    cd src/frontend/src/frontend/ts  && tsc
+
 start-frontend:
+    cd src/frontend/src/frontend/ts && tsc
     cd src/frontend && gleam run -m lustre/dev start
 
 start-backend:
