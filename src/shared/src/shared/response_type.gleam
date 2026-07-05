@@ -20,6 +20,10 @@ pub type CreateUserBody {
   CreateUserBody(username: String, password: String)
 }
 
+pub type UserLoginBody {
+  UserLoginBody(username: String, password: String)
+}
+
 pub type ErrorBody {
   ErrorBody(reason: String)
 }
@@ -92,6 +96,20 @@ pub fn decode_create_user_body() -> decode.Decoder(CreateUserBody) {
   use password <- decode.field("password", decode.string)
 
   decode.success(CreateUserBody(username:, password:))
+}
+
+pub fn encode_user_login_body_to_json(body: UserLoginBody) -> json.Json {
+  json.object([
+    #("username", json.string(body.username)),
+    #("password", json.string(body.password)),
+  ])
+}
+
+pub fn decode_user_login_body() -> decode.Decoder(UserLoginBody) {
+  use username <- decode.field("username", decode.string)
+  use password <- decode.field("password", decode.string)
+
+  decode.success(UserLoginBody(username:, password:))
 }
 
 pub fn encode_error_to_json(error: ErrorBody) -> json.Json {

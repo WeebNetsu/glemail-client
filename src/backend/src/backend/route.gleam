@@ -1,3 +1,4 @@
+import backend/db
 import backend/util
 import backend/wildduck
 import cors_builder
@@ -78,6 +79,71 @@ fn users(req: wisp.Request) -> wisp.Response {
   }
 }
 
+fn handle_user_login(body: String) -> Result(String, wisp.Response) {
+  use parsed_body <- result.try(
+    json.parse(body, response_type.decode_user_login_body())
+    |> result.map_error(fn(_) { wisp.internal_server_error() }),
+  )
+
+  case db.get_user(parsed_body.username) {
+    Ok(user) -> {
+      let hashed_pass = db.hash_value(parsed_body.password)
+
+      case hashed_pass == user.password {
+        True -> Ok(user.email_id)
+        False -> {
+          Error(wisp.json_response(
+            json.to_string(
+              response_type.encode_error_to_json(response_type.ErrorBody(
+                reason: "Invalid Password",
+              )),
+            ),
+            500,
+          ))
+        }
+      }
+    }
+    Error(err) -> {
+      case err {
+        db.NotFoundError -> {
+          Error(wisp.json_response(
+            json.to_string(
+              response_type.encode_error_to_json(response_type.ErrorBody(
+                reason: "Account not found",
+              )),
+            ),
+            500,
+          ))
+        }
+        db.SqliteError(msg) -> {
+          Error(wisp.json_response(
+            json.to_string(
+              response_type.encode_error_to_json(response_type.ErrorBody(
+                reason: msg,
+              )),
+            ),
+            500,
+          ))
+        }
+      }
+    }
+  }
+}
+
+fn users_login(req: wisp.Request) -> wisp.Response {
+  case req.method {
+    http.Post -> {
+      use body <- wisp.require_string_body(req)
+
+      case handle_user_login(body) {
+        Ok(_) -> wisp.ok()
+        Error(err) -> err
+      }
+    }
+    _ -> wisp.method_not_allowed(allowed: [http.Post])
+  }
+}
+
 fn cors_policy() -> cors_builder.Cors {
   cors_builder.new()
   |> cors_builder.allow_origin(util.get_env_values().client_url)
@@ -119,6 +185,7 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
   case wisp.path_segments(middleware_req) {
     ["mailboxes"] -> mailboxes(middleware_req)
     ["users"] -> users(middleware_req)
+    ["users", "login"] -> users_login(middleware_req)
 
     // This matches all other paths.
     _ -> wisp.not_found()

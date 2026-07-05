@@ -1,4 +1,5 @@
 import frontend/ffi
+import frontend/page/login
 import frontend/page/not_found
 import frontend/page/register
 import gleam/fetch
@@ -17,22 +18,25 @@ import shared/response_type
 import modem
 
 type Route {
-  Index
+  Register
+  Login
   NotFound(link: uri.Uri)
 }
 
 type Model {
-  Model(route: Route, register_page: register.Model)
+  Model(route: Route, register_page: register.Model, login_page: login.Model)
 }
 
 type Message {
   UserNavigatedTo(route: Route)
   RegisterMsg(register.Message)
+  LoginMsg(login.Message)
 }
 
 fn parse_route(link: uri.Uri) -> Route {
   case uri.path_segments(link.path) {
-    [] | [""] -> Index
+    [] | [""] | ["register"] -> Register
+    ["login"] -> Login
 
     // ["post", post_id] ->
     //   case int.parse(post_id) {
@@ -52,12 +56,18 @@ pub type Msg {
 fn init(_flags) {
   let route = case modem.initial_uri() {
     Ok(uri) -> parse_route(uri)
-    Error(_) -> Index
+    Error(_) -> Register
   }
 
   let #(register_page_model, register_page_effect) = register.init()
+  let #(login_page_model, login_page_effect) = login.init()
 
-  let model = Model(route:, register_page: register_page_model)
+  let model =
+    Model(
+      route:,
+      register_page: register_page_model,
+      login_page: login_page_model,
+    )
 
   let title_effect = effect.from(fn(_) { ffi.set_title(shared.site_name) })
   let modem_effect =
@@ -72,6 +82,7 @@ fn init(_flags) {
       modem_effect,
       title_effect,
       effect.map(register_page_effect, RegisterMsg),
+      effect.map(login_page_effect, LoginMsg),
     ])
 
   #(model, batch_effect)
@@ -89,6 +100,15 @@ fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
         effect.map(register_effect, RegisterMsg),
       )
     }
+    LoginMsg(login_message) -> {
+      let #(updated_login, login_effect) =
+        login.update(model.login_page, login_message)
+
+      #(
+        Model(..model, login_page: updated_login),
+        effect.map(login_effect, LoginMsg),
+      )
+    }
   }
 }
 
@@ -101,9 +121,13 @@ fn view(model: Model) -> element.Element(Message) {
     ],
     [
       case model.route {
-        Index -> {
+        Register -> {
           html.div([], register.view(model.register_page))
           |> element.map(RegisterMsg)
+        }
+        Login -> {
+          html.div([], login.view(model.login_page))
+          |> element.map(LoginMsg)
         }
         // Posts -> view_posts(model)
         // PostById(post_id) -> view_post(model, post_id)
