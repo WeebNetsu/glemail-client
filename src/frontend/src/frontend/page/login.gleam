@@ -148,8 +148,8 @@ pub fn update(
       case val {
         Ok(res) -> {
           ffi.set_cookie(
-            key: cookies.get_cookie_name(cookies.EmailId),
-            value: res.email_id,
+            key: cookies.get_cookie_name(cookies.JwtAccessToken),
+            value: res.jwt,
             expiry_date: "",
           )
 

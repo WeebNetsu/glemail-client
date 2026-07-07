@@ -2,12 +2,109 @@ import backend/db
 import backend/util
 import backend/wildduck
 import cors_builder
+import gleam/bit_array
+import gleam/dynamic/decode
 import gleam/http
 import gleam/json
 import gleam/list
 import gleam/result
+import gleam/time/duration
+import gleam/time/timestamp
+import gose
+import gose/jose/jwt
 import shared/response_type
 import wisp
+
+type RouteError {
+  JwtError
+  JwtExpiredError
+  JwtDecodeError
+}
+
+type JwtData {
+  JwtData(email_id: String, user_id: Int)
+}
+
+fn validate_jwt(token: String) -> Result(String, RouteError) {
+  use signing_key <- result.try(
+    gose.from_octet_bits(bit_array.from_string(util.get_env_values().secret_key))
+    |> result.map_error(fn(_) { JwtError }),
+  )
+
+  use verifier <- result.try(
+    jwt.verifier(
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
+      keys: [signing_key],
+      options: jwt.default_validation(),
+    )
+    |> result.map_error(fn(_) { JwtError }),
+  )
+
+  use verified <- result.try(
+    jwt.verify_and_validate(verifier, token, timestamp.system_time())
+    |> result.map_error(fn(err) {
+      case err {
+        jwt.TokenExpired(_) -> JwtExpiredError
+        _ -> JwtError
+      }
+    }),
+  )
+
+  let decoder = decode.field("sub", decode.string, decode.success)
+  use val <- result.try(
+    jwt.decode(verified, using: decoder)
+    |> result.map_error(fn(_) { JwtDecodeError }),
+  )
+
+  Ok(val)
+}
+
+fn encode_jwt_to_json(data: JwtData) {
+  json.object([
+    #("email_id", json.string(data.email_id)),
+    #("user_id", json.int(data.user_id)),
+  ])
+}
+
+fn decode_jwt() -> decode.Decoder(JwtData) {
+  use email_id <- decode.field("email_id", decode.string)
+  use user_id <- decode.field("user_id", decode.int)
+
+  decode.success(JwtData(email_id:, user_id:))
+}
+
+fn generate_jwt(jwt: JwtData) -> Result(String, RouteError) {
+  use signing_key <- result.try(
+    gose.from_octet_bits(bit_array.from_string(util.get_env_values().secret_key))
+    |> result.map_error(fn(_) { JwtError }),
+  )
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(json.to_string(encode_jwt_to_json(jwt)))
+    |> jwt.with_issuer(util.get_env_values().app)
+    |> jwt.with_expiration(timestamp.add(
+      timestamp.system_time(),
+      duration.hours(24),
+    ))
+
+  use signed <- result.try(
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims:, key: signing_key)
+    |> result.map_error(fn(_) { JwtError }),
+  )
+
+  Ok(jwt.serialize(signed))
+}
+
+fn get_jwt_from_token(token: String) -> Result(JwtData, RouteError) {
+  use str_jwt <- result.try(validate_jwt(token))
+  use parsed_jwt <- result.try(
+    json.parse(str_jwt, decode_jwt())
+    |> result.map_error(fn(_) { JwtError }),
+  )
+
+  Ok(parsed_jwt)
+}
 
 fn mailboxes(req: wisp.Request) -> wisp.Response {
   case req.method {
@@ -137,15 +234,27 @@ fn users_login(req: wisp.Request) -> wisp.Response {
 
       case handle_user_login(body) {
         Ok(email_id) -> {
-          wisp.json_response(
-            json.to_string(
-              response_type.encode_login_success_response_to_json(
-                response_type.UserLoginResponseBody(email_id:),
-              ),
-            ),
-            200,
-          )
-          //   wisp.ok()
+          let token = generate_jwt(JwtData(email_id:, user_id: 0))
+
+          //   let jwt_data = case token {
+          //     Ok(val) -> get_jwt_from_token(val)
+          //     Error(err) -> Error(err)
+          //   }
+          //   echo jwt_data
+
+          case token {
+            Ok(val) -> {
+              wisp.json_response(
+                json.to_string(
+                  response_type.encode_login_success_response_to_json(
+                    response_type.UserLoginResponseBody(jwt: val),
+                  ),
+                ),
+                200,
+              )
+            }
+            Error(_) -> wisp.internal_server_error()
+          }
         }
         Error(err) -> err
       }

@@ -25,7 +25,7 @@ pub type UserLoginBody {
 }
 
 pub type UserLoginResponseBody {
-  UserLoginResponseBody(email_id: String)
+  UserLoginResponseBody(jwt: String)
 }
 
 pub type ErrorBody {
@@ -129,13 +129,13 @@ pub fn decode_error_body() -> decode.Decoder(ErrorBody) {
 pub fn encode_login_success_response_to_json(
   response: UserLoginResponseBody,
 ) -> json.Json {
-  json.object([#("email_id", json.string(response.email_id))])
+  json.object([#("jwt", json.string(response.jwt))])
 }
 
 pub fn decode_login_success_response_body() -> decode.Decoder(
   UserLoginResponseBody,
 ) {
-  use email_id <- decode.field("email_id", decode.string)
+  use jwt <- decode.field("jwt", decode.string)
 
-  decode.success(UserLoginResponseBody(email_id:))
+  decode.success(UserLoginResponseBody(jwt:))
 }

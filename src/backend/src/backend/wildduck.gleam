@@ -329,10 +329,10 @@ pub fn create_user(
   let env_values = util.get_env_values()
 
   let url =
-    env_values.api_url
+    env_values.wildduck_api_url
     <> "/users"
     <> util.url_query_builder([
-      #("accessToken", env_values.access_token),
+      #("accessToken", env_values.wildduck_access_token),
     ])
 
   use base_req <- result.try(
@@ -398,12 +398,12 @@ pub fn get_user_mailboxes() -> Result(
   let env_values = util.get_env_values()
 
   let url =
-    env_values.api_url
+    env_values.wildduck_api_url
     <> "/users/"
     <> env_values.user_id
     <> "/mailboxes"
     <> util.url_query_builder([
-      #("accessToken", env_values.access_token),
+      #("accessToken", env_values.wildduck_access_token),
     ])
 
   use resp <- result.try(
@@ -433,14 +433,14 @@ pub fn get_messages_in_mailbox(
   let env_values = util.get_env_values()
 
   let url =
-    env_values.api_url
+    env_values.wildduck_api_url
     <> "/users/"
     <> env_values.user_id
     <> "/mailboxes/"
     <> mailbox_id
     <> "/messages"
     <> util.url_query_builder([
-      #("accessToken", env_values.access_token),
+      #("accessToken", env_values.wildduck_access_token),
       #("limit", int.to_string(limit)),
       #("page", int.to_string(page)),
     ])

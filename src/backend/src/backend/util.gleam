@@ -6,10 +6,11 @@ import gleam/string
 pub type EnvValues {
   EnvValues(
     client_url: String,
-    api_url: String,
+    wildduck_api_url: String,
     user_id: String,
-    access_token: String,
+    wildduck_access_token: String,
     secret_key: String,
+    app: String,
   )
 }
 
@@ -17,18 +18,31 @@ pub fn get_env_values() -> EnvValues {
   // required env variables, if they do not exist, the code can't function
   case
     env.get_string("CLIENT_URL"),
-    env.get_string("API_URL"),
-    env.get_string("ACCESS_TOKEN"),
+    env.get_string("WILDDUCK_API_URL"),
+    env.get_string("WILDDUCK_ACCESS_TOKEN"),
     env.get_string("SECRET_KEY"),
+    env.get_string("APP"),
     // todo will be replaced by other values later
     env.get_string("USER_ID")
   {
-    Ok(client_url), Ok(api_url), Ok(access_token), Ok(secret_key), Ok(user_id)
+    Ok(client_url),
+      Ok(wildduck_api_url),
+      Ok(wildduck_access_token),
+      Ok(secret_key),
+      Ok(app),
+      Ok(user_id)
     -> {
-      EnvValues(client_url:, api_url:, user_id:, access_token:, secret_key:)
+      EnvValues(
+        client_url:,
+        wildduck_api_url:,
+        user_id:,
+        wildduck_access_token:,
+        app:,
+        secret_key:,
+      )
     }
-    _, _, _, _, _ -> {
-      io.print_error("Some ENV variables are missing")
+    _, _, _, _, _, _ -> {
+      io.println_error("Some ENV variables are missing")
       panic
     }
   }

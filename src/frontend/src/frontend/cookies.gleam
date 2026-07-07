@@ -4,12 +4,12 @@ import gleam/result
 import gleam/string
 
 pub type AvailableCookies {
-  EmailId
+  JwtAccessToken
 }
 
 pub fn get_cookie_name(cookie: AvailableCookies) -> String {
   case cookie {
-    EmailId -> "email-id"
+    JwtAccessToken -> "jat"
   }
 }
 
