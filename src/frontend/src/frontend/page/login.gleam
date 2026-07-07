@@ -1,5 +1,7 @@
 import frontend/component
 import frontend/config
+import frontend/cookies
+import frontend/ffi
 import gleam/json
 import gleam/option
 import gleam/string
@@ -32,7 +34,9 @@ pub type Model {
 pub type Message {
   LoginUpdatedUsername(String)
   LoginUpdatedPassword(String)
-  ApiLoginAccount(Result(String, rsvp.Error(String)))
+  ApiLoginAccount(
+    Result(response_type.UserLoginResponseBody, rsvp.Error(String)),
+  )
   LoginAccount
 }
 
@@ -142,7 +146,13 @@ pub fn update(
     }
     ApiLoginAccount(val) -> {
       case val {
-        Ok(_) -> {
+        Ok(res) -> {
+          ffi.set_cookie(
+            key: cookies.get_cookie_name(cookies.EmailId),
+            value: res.email_id,
+            expiry_date: "",
+          )
+
           #(
             Model(..model, error: option.None, success: True, loading: False),
             effect.none(),
@@ -195,7 +205,10 @@ pub fn update(
             #("username", json.string(model.username)),
             #("password", json.string(model.password)),
           ]),
-          rsvp.expect_text(ApiLoginAccount),
+          rsvp.expect_json(
+            response_type.decode_login_success_response_body(),
+            ApiLoginAccount,
+          ),
         ),
       )
     }

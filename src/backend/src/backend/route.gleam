@@ -136,7 +136,17 @@ fn users_login(req: wisp.Request) -> wisp.Response {
       use body <- wisp.require_string_body(req)
 
       case handle_user_login(body) {
-        Ok(_) -> wisp.ok()
+        Ok(email_id) -> {
+          wisp.json_response(
+            json.to_string(
+              response_type.encode_login_success_response_to_json(
+                response_type.UserLoginResponseBody(email_id:),
+              ),
+            ),
+            200,
+          )
+          //   wisp.ok()
+        }
         Error(err) -> err
       }
     }

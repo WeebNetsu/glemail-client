@@ -24,6 +24,10 @@ pub type UserLoginBody {
   UserLoginBody(username: String, password: String)
 }
 
+pub type UserLoginResponseBody {
+  UserLoginResponseBody(email_id: String)
+}
+
 pub type ErrorBody {
   ErrorBody(reason: String)
 }
@@ -120,4 +124,18 @@ pub fn decode_error_body() -> decode.Decoder(ErrorBody) {
   use error <- decode.field("error", decode.string)
 
   decode.success(ErrorBody(reason: error))
+}
+
+pub fn encode_login_success_response_to_json(
+  response: UserLoginResponseBody,
+) -> json.Json {
+  json.object([#("email_id", json.string(response.email_id))])
+}
+
+pub fn decode_login_success_response_body() -> decode.Decoder(
+  UserLoginResponseBody,
+) {
+  use email_id <- decode.field("email_id", decode.string)
+
+  decode.success(UserLoginResponseBody(email_id:))
 }
