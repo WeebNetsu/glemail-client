@@ -22,7 +22,7 @@ type RouteError {
 }
 
 type JwtData {
-  JwtData(email_id: String, user_id: Int)
+  JwtData(email_id: String)
 }
 
 fn validate_jwt(token: String) -> Result(String, RouteError) {
@@ -62,15 +62,15 @@ fn validate_jwt(token: String) -> Result(String, RouteError) {
 fn encode_jwt_to_json(data: JwtData) {
   json.object([
     #("email_id", json.string(data.email_id)),
-    #("user_id", json.int(data.user_id)),
+    // #("user_id", json.int(data.user_id)),
   ])
 }
 
 fn decode_jwt() -> decode.Decoder(JwtData) {
   use email_id <- decode.field("email_id", decode.string)
-  use user_id <- decode.field("user_id", decode.int)
+  //   use user_id <- decode.field("user_id", decode.int)
 
-  decode.success(JwtData(email_id:, user_id:))
+  decode.success(JwtData(email_id:))
 }
 
 fn generate_jwt(jwt: JwtData) -> Result(String, RouteError) {
@@ -224,7 +224,7 @@ fn users_login(req: wisp.Request) -> wisp.Response {
 
       case handle_user_login(body) {
         Ok(email_id) -> {
-          let token = generate_jwt(JwtData(email_id:, user_id: 0))
+          let token = generate_jwt(JwtData(email_id:))
 
           //   let jwt_data = case token {
           //     Ok(val) -> get_jwt_from_token(val)
