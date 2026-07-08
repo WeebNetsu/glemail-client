@@ -259,6 +259,7 @@ fn cors_policy() -> cors_builder.Cors {
   cors_builder.new()
   |> cors_builder.allow_origin(util.get_env_values().client_url)
   |> cors_builder.allow_header("content-type")
+  |> cors_builder.allow_header("authorization")
   |> cors_builder.allow_method(http.Get)
   |> cors_builder.allow_method(http.Post)
   |> cors_builder.allow_method(http.Options)
@@ -277,6 +278,9 @@ fn middleware(
   use <- wisp.rescue_crashes
   // Rewrite HEAD requests to GET requests and return an empty body.
   use req <- wisp.handle_head(req)
+
+  //   let auth_head = list.find(req.headers, fn(head) { head.0 == "authorization" })
+  //   echo auth_head
 
   // Known-header based CSRF protection for non-HEAD/GET requests
   //   use req <- wisp.csrf_known_header_protection(req)
