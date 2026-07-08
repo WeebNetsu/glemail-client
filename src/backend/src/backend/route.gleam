@@ -106,6 +106,15 @@ fn get_jwt_from_token(token: String) -> Result(JwtData, RouteError) {
   Ok(parsed_jwt)
 }
 
+fn wisp_error_response(code: Int, reason: String) {
+  wisp.json_response(
+    json.to_string(
+      response_type.encode_error_to_json(response_type.ErrorBody(reason:)),
+    ),
+    code,
+  )
+}
+
 fn mailboxes(req: wisp.Request) -> wisp.Response {
   case req.method {
     http.Get -> {
@@ -130,11 +139,11 @@ fn mailboxes(req: wisp.Request) -> wisp.Response {
           )
         }
         Error(_) -> {
-          wisp.internal_server_error()
+          wisp_error_response(500, "Could not get mailboxes")
         }
       }
     }
-    _ -> wisp.method_not_allowed([http.Get, http.Post])
+    _ -> wisp.method_not_allowed([http.Get])
   }
 }
 
@@ -179,7 +188,9 @@ fn users(req: wisp.Request) -> wisp.Response {
 fn handle_user_login(body: String) -> Result(String, wisp.Response) {
   use parsed_body <- result.try(
     json.parse(body, response_type.decode_user_login_body())
-    |> result.map_error(fn(_) { wisp.internal_server_error() }),
+    |> result.map_error(fn(_) {
+      wisp_error_response(400, "Invalid data provided for request")
+    }),
   )
 
   case db.get_user(parsed_body.username) {
@@ -189,38 +200,17 @@ fn handle_user_login(body: String) -> Result(String, wisp.Response) {
       case hashed_pass == user.password {
         True -> Ok(user.email_id)
         False -> {
-          Error(wisp.json_response(
-            json.to_string(
-              response_type.encode_error_to_json(response_type.ErrorBody(
-                reason: "Invalid Password",
-              )),
-            ),
-            500,
-          ))
+          Error(wisp_error_response(400, "Invalid Password"))
         }
       }
     }
     Error(err) -> {
       case err {
         db.NotFoundError -> {
-          Error(wisp.json_response(
-            json.to_string(
-              response_type.encode_error_to_json(response_type.ErrorBody(
-                reason: "Account not found",
-              )),
-            ),
-            500,
-          ))
+          Error(wisp_error_response(404, "Account not found"))
         }
         db.SqliteError(msg) -> {
-          Error(wisp.json_response(
-            json.to_string(
-              response_type.encode_error_to_json(response_type.ErrorBody(
-                reason: msg,
-              )),
-            ),
-            500,
-          ))
+          Error(wisp_error_response(500, msg))
         }
       }
     }
@@ -253,7 +243,9 @@ fn users_login(req: wisp.Request) -> wisp.Response {
                 200,
               )
             }
-            Error(_) -> wisp.internal_server_error()
+            Error(_) -> {
+              wisp_error_response(500, "Could not generate token")
+            }
           }
         }
         Error(err) -> err
