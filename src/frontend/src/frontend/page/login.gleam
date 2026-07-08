@@ -1,7 +1,8 @@
 import frontend/component
-import frontend/config
 import frontend/cookies
 import frontend/ffi
+import frontend/utils
+import gleam/http
 import gleam/json
 import gleam/option
 import gleam/string
@@ -19,6 +20,7 @@ pub type LoginErrors {
   InvalidUsername
   UnknownError
   LoginError(String)
+  AuthError
 }
 
 pub type Model {
@@ -183,8 +185,6 @@ pub fn update(
           }
         }
         _ -> {
-          echo val
-
           #(
             Model(
               ..model,
@@ -197,20 +197,56 @@ pub fn update(
       }
     }
     LoginAccount -> {
-      #(
-        Model(..model, error: option.None, success: False, loading: True),
-        rsvp.post(
-          config.api_url <> "/users/login",
-          json.object([
-            #("username", json.string(model.username)),
-            #("password", json.string(model.password)),
-          ]),
-          rsvp.expect_json(
-            response_type.decode_login_success_response_body(),
-            ApiLoginAccount,
+      let req =
+        utils.build_request(
+          method: http.Post,
+          path: "/users/login",
+          body: json.to_string(
+            json.object([
+              #("username", json.string(model.username)),
+              #("password", json.string(model.password)),
+            ]),
           ),
-        ),
-      )
+          include_auth: False,
+        )
+
+      case req {
+        Ok(built_request) -> {
+          let handler =
+            rsvp.expect_json(
+              response_type.decode_login_success_response_body(),
+              ApiLoginAccount,
+            )
+
+          #(
+            Model(..model, error: option.None, success: False, loading: True),
+            rsvp.send(built_request, handler),
+            // rsvp.post(
+          //   config.api_url <> "/users/login",
+          // json.object([
+          //   #("username", json.string(model.username)),
+          //   #("password", json.string(model.password)),
+          // ]),
+          //   rsvp.expect_json(
+          //     response_type.decode_login_success_response_body(),
+          //     ApiLoginAccount,
+          //   ),
+          // ),
+          )
+        }
+        Error(_) -> {
+          // this should never happen really, since include_auth is false, but just in case
+          #(
+            Model(
+              ..model,
+              error: option.Some(AuthError),
+              success: False,
+              loading: False,
+            ),
+            effect.none(),
+          )
+        }
+      }
     }
   }
 }
@@ -319,6 +355,11 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
             html.text(
               "Unknown Error. An unknown error has occurred, please contact support.",
             ),
+          ])
+        }
+        AuthError -> {
+          component.error_p(attributes: [], elements: [
+            html.text("Unable to authenticate requests"),
           ])
         }
       }
