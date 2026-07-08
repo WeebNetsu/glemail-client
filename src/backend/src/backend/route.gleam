@@ -116,6 +116,16 @@ fn wisp_error_response(code: Int, reason: String) {
 }
 
 fn mailboxes(req: wisp.Request) -> wisp.Response {
+  //   let auth_head = list.find(req.headers, fn(head) { head.0 == "authorization" })
+  //   echo auth_head
+
+  //   let jwt_data = case token {
+  //     Ok(val) -> get_jwt_from_token(val)
+  //     Error(err) -> Error(err)
+  //   }
+
+  //   echo jwt_data
+
   case req.method {
     http.Get -> {
       case wildduck.get_user_mailboxes() {
@@ -226,12 +236,6 @@ fn users_login(req: wisp.Request) -> wisp.Response {
         Ok(email_id) -> {
           let token = generate_jwt(JwtData(email_id:))
 
-          //   let jwt_data = case token {
-          //     Ok(val) -> get_jwt_from_token(val)
-          //     Error(err) -> Error(err)
-          //   }
-          //   echo jwt_data
-
           case token {
             Ok(val) -> {
               wisp.json_response(
@@ -281,9 +285,6 @@ fn middleware(
 
   //   let auth_head = list.find(req.headers, fn(head) { head.0 == "authorization" })
   //   echo auth_head
-
-  // Known-header based CSRF protection for non-HEAD/GET requests
-  //   use req <- wisp.csrf_known_header_protection(req)
 
   // Handle the request!
   request_handler(req)

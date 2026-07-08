@@ -1,5 +1,6 @@
 import frontend/ffi
 import frontend/page/login
+import frontend/page/mail
 import frontend/page/not_found
 import frontend/page/register
 import gleam/fetch
@@ -20,23 +21,31 @@ import modem
 type Route {
   Register
   Login
+  Mail
   NotFound(link: uri.Uri)
 }
 
 type Model {
-  Model(route: Route, register_page: register.Model, login_page: login.Model)
+  Model(
+    route: Route,
+    register_page: register.Model,
+    login_page: login.Model,
+    mail_page: mail.Model,
+  )
 }
 
 type Message {
   UserNavigatedTo(route: Route)
   RegisterMsg(register.Message)
   LoginMsg(login.Message)
+  MailMsg(mail.Message)
 }
 
 fn parse_route(link: uri.Uri) -> Route {
   case uri.path_segments(link.path) {
     [] | [""] | ["register"] -> Register
     ["login"] -> Login
+    ["mail"] -> Mail
 
     // ["post", post_id] ->
     //   case int.parse(post_id) {
@@ -61,12 +70,14 @@ fn init(_flags) {
 
   let #(register_page_model, register_page_effect) = register.init()
   let #(login_page_model, login_page_effect) = login.init()
+  let #(mail_page_model, mail_page_effect) = mail.init()
 
   let model =
     Model(
       route:,
       register_page: register_page_model,
       login_page: login_page_model,
+      mail_page: mail_page_model,
     )
 
   let title_effect = effect.from(fn(_) { ffi.set_title(shared.site_name) })
@@ -83,6 +94,7 @@ fn init(_flags) {
       title_effect,
       effect.map(register_page_effect, RegisterMsg),
       effect.map(login_page_effect, LoginMsg),
+      effect.map(mail_page_effect, MailMsg),
     ])
 
   #(model, batch_effect)
@@ -109,6 +121,15 @@ fn update(model: Model, message: Message) -> #(Model, effect.Effect(Message)) {
         effect.map(login_effect, LoginMsg),
       )
     }
+    MailMsg(mail_message) -> {
+      let #(updated_mail, mail_effect) =
+        mail.update(model.mail_page, mail_message)
+
+      #(
+        Model(..model, mail_page: updated_mail),
+        effect.map(mail_effect, MailMsg),
+      )
+    }
   }
 }
 
@@ -116,22 +137,39 @@ fn view(model: Model) -> element.Element(Message) {
   html.main(
     [
       attribute.class(
-        "dark bg-gray-700 min-w-screen w-full min-h-screen h-full p-1 text-slate-100",
+        "dark bg-gray-700 min-w-screen w-full min-h-screen h-full p-1 text-slate-100 flex",
       ),
     ],
     [
       case model.route {
         Register -> {
-          html.div([], register.view(model.register_page))
+          html.div(
+            [
+              attribute.class("flex-1"),
+            ],
+            register.view(model.register_page),
+          )
           |> element.map(RegisterMsg)
         }
         Login -> {
-          html.div([], login.view(model.login_page))
+          html.div(
+            [
+              attribute.class("flex-1"),
+            ],
+            login.view(model.login_page),
+          )
           |> element.map(LoginMsg)
         }
-        // Posts -> view_posts(model)
+        Mail -> {
+          html.div(
+            [
+              attribute.class("flex-1"),
+            ],
+            mail.view(model.mail_page),
+          )
+          |> element.map(MailMsg)
+        }
         // PostById(post_id) -> view_post(model, post_id)
-        // About -> view_about()
         NotFound(_) -> html.div([], not_found.view())
       },
     ],
