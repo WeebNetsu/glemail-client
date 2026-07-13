@@ -5,6 +5,7 @@ import lustre/element/html
 
 pub type Variants {
   DestructiveVariant
+  LinkVariant
   DefaultVariant
 }
 
@@ -70,6 +71,7 @@ pub fn button(
     DestructiveVariant -> {
       "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
     }
+    LinkVariant -> "ext-primary underline-offset-4 hover:underline"
     DefaultVariant -> default_variant_style
   }
 
