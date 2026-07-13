@@ -68,7 +68,7 @@ fn initial_data_fetch() {
       method: http.Get,
       path: "/mailboxes",
       body: "",
-      include_auth: False,
+      include_auth: True,
     )
 
   case req {

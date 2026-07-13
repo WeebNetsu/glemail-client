@@ -290,6 +290,39 @@ fn middleware(
   request_handler(req)
 }
 
+fn auth_middleware(req: wisp.Request) -> Result(String, RouteError) {
+  use #(_, token) <- result.try(
+    list.find(req.headers, fn(head) { head.0 == "authorization" })
+    |> result.map_error(fn(_) { AuthError }),
+  )
+  Ok(string.replace(token, each: "Bearer ", with: ""))
+}
+
+fn with_auth(
+  req: wisp.Request,
+  handler: fn(wisp.Request, JwtData) -> wisp.Response,
+) -> wisp.Response {
+  case auth_middleware(req) {
+    Ok(token) -> {
+      case get_jwt_from_token(token) {
+        Ok(jwt) -> {
+          handler(req, jwt)
+        }
+        Error(err) -> {
+          echo err
+          wisp.internal_server_error()
+        }
+      }
+    }
+    Error(_) -> {
+      wisp.json_response(
+        json.to_string(json.object([#("error", json.string("unauthorized"))])),
+        401,
+      )
+    }
+  }
+}
+
 pub fn handle_request(req: wisp.Request) -> wisp.Response {
   // order is important, do cors before middleware
   use cors_req <- cors_builder.wisp_middleware(req, cors_policy())
@@ -299,7 +332,7 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
   // regular old pattern matching. This is faster than a router, is type safe,
   // and means you don't have to learn or be limited by a special DSL.
   case wisp.path_segments(middleware_req) {
-    ["mailboxes"] -> mailboxes(middleware_req)
+    ["mailboxes"] -> with_auth(middleware_req, mailboxes)
     ["users"] -> users(middleware_req)
     ["users", "login"] -> users_login(middleware_req)
 
