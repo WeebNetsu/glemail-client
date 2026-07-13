@@ -7,7 +7,6 @@ pub type EnvValues {
   EnvValues(
     client_url: String,
     wildduck_api_url: String,
-    user_id: String,
     wildduck_access_token: String,
     secret_key: String,
     app: String,
@@ -21,27 +20,23 @@ pub fn get_env_values() -> EnvValues {
     env.get_string("WILDDUCK_API_URL"),
     env.get_string("WILDDUCK_ACCESS_TOKEN"),
     env.get_string("SECRET_KEY"),
-    env.get_string("APP"),
-    // todo will be replaced by other values later
-    env.get_string("USER_ID")
+    env.get_string("APP")
   {
     Ok(client_url),
       Ok(wildduck_api_url),
       Ok(wildduck_access_token),
       Ok(secret_key),
-      Ok(app),
-      Ok(user_id)
+      Ok(app)
     -> {
       EnvValues(
         client_url:,
         wildduck_api_url:,
-        user_id:,
         wildduck_access_token:,
         app:,
         secret_key:,
       )
     }
-    _, _, _, _, _, _ -> {
+    _, _, _, _, _ -> {
       io.println_error("Some ENV variables are missing")
       panic
     }

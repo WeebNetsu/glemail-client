@@ -70,13 +70,11 @@ fn validate_jwt(token: String) -> Result(String, RouteError) {
 fn encode_jwt_to_json(data: JwtData) {
   json.object([
     #("email_id", json.string(data.email_id)),
-    // #("user_id", json.int(data.user_id)),
   ])
 }
 
 fn decode_jwt() -> decode.Decoder(JwtData) {
   use email_id <- decode.field("email_id", decode.string)
-  //   use user_id <- decode.field("user_id", decode.int)
 
   decode.success(JwtData(email_id:))
 }
@@ -123,10 +121,10 @@ fn wisp_error_response(code: Int, reason: String) {
   )
 }
 
-fn mailboxes(req: wisp.Request, jwt: JwtData) -> wisp.Response {
+fn mailboxes(req: wisp.Request, token: JwtData) -> wisp.Response {
   case req.method {
     http.Get -> {
-      case wildduck.get_user_mailboxes() {
+      case wildduck.get_user_mailboxes(token.email_id) {
         Ok(mailboxes) -> {
           list.map(mailboxes.results, fn(res) {
             response_type.Mailbox(
