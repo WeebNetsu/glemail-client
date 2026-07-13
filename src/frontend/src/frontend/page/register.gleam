@@ -1,5 +1,6 @@
 import frontend/component
 import frontend/config
+import frontend/utils
 import gleam/json
 import gleam/option
 import gleam/string
@@ -8,6 +9,7 @@ import lustre/effect
 import lustre/element
 import lustre/element/html
 import lustre/event
+import modem
 import rsvp
 import shared/response_type
 import shared/validation
@@ -145,7 +147,11 @@ pub fn update(
         Ok(_) -> {
           #(
             Model(..model, error: option.None, success: True, loading: False),
-            effect.none(),
+            modem.push(
+              utils.get_route_path(utils.MailRoute),
+              option.None,
+              option.None,
+            ),
           )
         }
         Error(rsvp.HttpError(err)) -> {

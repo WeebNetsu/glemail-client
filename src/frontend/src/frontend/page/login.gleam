@@ -11,6 +11,7 @@ import lustre/effect
 import lustre/element
 import lustre/element/html
 import lustre/event
+import modem
 import rsvp
 import shared/response_type
 import shared/validation
@@ -157,7 +158,11 @@ pub fn update(
 
           #(
             Model(..model, error: option.None, success: True, loading: False),
-            effect.none(),
+            modem.push(
+              utils.get_route_path(utils.MailRoute),
+              option.None,
+              option.None,
+            ),
           )
         }
         Error(rsvp.HttpError(err)) -> {
@@ -221,17 +226,6 @@ pub fn update(
           #(
             Model(..model, error: option.None, success: False, loading: True),
             rsvp.send(built_request, handler),
-            // rsvp.post(
-          //   config.api_url <> "/users/login",
-          // json.object([
-          //   #("username", json.string(model.username)),
-          //   #("password", json.string(model.password)),
-          // ]),
-          //   rsvp.expect_json(
-          //     response_type.decode_login_success_response_body(),
-          //     ApiLoginAccount,
-          //   ),
-          // ),
           )
         }
         Error(_) -> {
