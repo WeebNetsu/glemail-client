@@ -181,8 +181,6 @@ pub fn update(
           }
         }
         _ -> {
-          echo val
-
           #(
             Model(
               ..model,
@@ -269,16 +267,30 @@ fn render_register(
         ]),
       ],
       actions: [
-        component.button(
+        component.div(
           attributes: [
-            event.on_click(CreateNewAccount),
-            attribute.disabled(
-              string.length(model.username) < 1
-              || string.length(model.password) < 1,
+            attribute.class("flex-row justify-between w-full"),
+          ],
+          elements: [
+            component.button(
+              attributes: [
+                event.on_click(CreateNewAccount),
+                attribute.disabled(
+                  string.length(model.username) < 1
+                  || string.length(model.password) < 1,
+                ),
+              ],
+              elements: [html.text("Create Account")],
+              variant: component.DefaultVariant,
+            ),
+
+            component.link(
+              attributes: [
+                attribute.href(utils.get_route_path(utils.LoginRoute)),
+              ],
+              elements: [html.text("Login Instead")],
             ),
           ],
-          elements: [html.text("Create Account")],
-          variant: component.DefaultVariant,
         ),
       ],
       title: option.Some("Create Account"),

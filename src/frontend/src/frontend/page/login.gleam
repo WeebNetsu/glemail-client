@@ -304,16 +304,30 @@ fn render_login(
         ]),
       ],
       actions: [
-        component.button(
+        component.div(
           attributes: [
-            event.on_click(LoginAccount),
-            attribute.disabled(
-              string.length(model.username) < 1
-              || string.length(model.password) < 1,
+            attribute.class("flex-row justify-between w-full"),
+          ],
+          elements: [
+            component.button(
+              attributes: [
+                event.on_click(LoginAccount),
+                attribute.disabled(
+                  string.length(model.username) < 1
+                  || string.length(model.password) < 1,
+                ),
+              ],
+              elements: [html.text("Login")],
+              variant: component.DefaultVariant,
+            ),
+
+            component.link(
+              attributes: [
+                attribute.href(utils.get_route_path(utils.RegisterRoute)),
+              ],
+              elements: [html.text("Register Instead")],
             ),
           ],
-          elements: [html.text("Login")],
-          variant: component.DefaultVariant,
         ),
       ],
       title: option.Some("Login"),
