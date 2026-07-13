@@ -8,6 +8,7 @@ import gleam/http
 import gleam/json
 import gleam/list
 import gleam/result
+import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
 import gose
@@ -16,9 +17,13 @@ import shared/response_type
 import wisp
 
 type RouteError {
-  JwtError
+  //   JwtError
+  JwtSigningError
+  JwtUnknownError
+  JwtVerifierError
   JwtExpiredError
   JwtDecodeError
+  AuthError
 }
 
 type JwtData {
@@ -28,7 +33,7 @@ type JwtData {
 fn validate_jwt(token: String) -> Result(String, RouteError) {
   use signing_key <- result.try(
     gose.from_octet_bits(bit_array.from_string(util.get_env_values().secret_key))
-    |> result.map_error(fn(_) { JwtError }),
+    |> result.map_error(fn(_) { JwtSigningError }),
   )
 
   use verifier <- result.try(
@@ -37,7 +42,7 @@ fn validate_jwt(token: String) -> Result(String, RouteError) {
       keys: [signing_key],
       options: jwt.default_validation(),
     )
-    |> result.map_error(fn(_) { JwtError }),
+    |> result.map_error(fn(_) { JwtVerifierError }),
   )
 
   use verified <- result.try(
@@ -45,7 +50,10 @@ fn validate_jwt(token: String) -> Result(String, RouteError) {
     |> result.map_error(fn(err) {
       case err {
         jwt.TokenExpired(_) -> JwtExpiredError
-        _ -> JwtError
+        error -> {
+          echo error
+          JwtUnknownError
+        }
       }
     }),
   )
@@ -76,7 +84,7 @@ fn decode_jwt() -> decode.Decoder(JwtData) {
 fn generate_jwt(jwt: JwtData) -> Result(String, RouteError) {
   use signing_key <- result.try(
     gose.from_octet_bits(bit_array.from_string(util.get_env_values().secret_key))
-    |> result.map_error(fn(_) { JwtError }),
+    |> result.map_error(fn(_) { JwtSigningError }),
   )
 
   let claims =
@@ -90,7 +98,7 @@ fn generate_jwt(jwt: JwtData) -> Result(String, RouteError) {
 
   use signed <- result.try(
     jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims:, key: signing_key)
-    |> result.map_error(fn(_) { JwtError }),
+    |> result.map_error(fn(_) { JwtSigningError }),
   )
 
   Ok(jwt.serialize(signed))
@@ -100,7 +108,7 @@ fn get_jwt_from_token(token: String) -> Result(JwtData, RouteError) {
   use str_jwt <- result.try(validate_jwt(token))
   use parsed_jwt <- result.try(
     json.parse(str_jwt, decode_jwt())
-    |> result.map_error(fn(_) { JwtError }),
+    |> result.map_error(fn(_) { JwtDecodeError }),
   )
 
   Ok(parsed_jwt)
@@ -115,38 +123,23 @@ fn wisp_error_response(code: Int, reason: String) {
   )
 }
 
-fn mailboxes(req: wisp.Request) -> wisp.Response {
-  //   let auth_head = list.find(req.headers, fn(head) { head.0 == "authorization" })
-  //   echo auth_head
-
-  //   let jwt_data = case token {
-  //     Ok(val) -> get_jwt_from_token(val)
-  //     Error(err) -> Error(err)
-  //   }
-
-  //   echo jwt_data
-
+fn mailboxes(req: wisp.Request, jwt: JwtData) -> wisp.Response {
   case req.method {
     http.Get -> {
       case wildduck.get_user_mailboxes() {
         Ok(mailboxes) -> {
-          wisp.json_response(
-            json.to_string(
-              response_type.encode_get_mailboxes_response_to_json(
-                response_type.GetMailboxesResponse(
-                  list.map(mailboxes.results, fn(res) {
-                    response_type.Mailbox(
-                      id: res.id,
-                      name: res.name,
-                      total: res.total,
-                      unseen: res.unseen,
-                    )
-                  }),
-                ),
-              ),
-            ),
-            200,
-          )
+          list.map(mailboxes.results, fn(res) {
+            response_type.Mailbox(
+              id: res.id,
+              name: res.name,
+              total: res.total,
+              unseen: res.unseen,
+            )
+          })
+          |> response_type.GetMailboxesResponse()
+          |> response_type.encode_get_mailboxes_response_to_json()
+          |> json.to_string()
+          |> wisp.json_response(200)
         }
         Error(_) -> {
           wisp_error_response(500, "Could not get mailboxes")
