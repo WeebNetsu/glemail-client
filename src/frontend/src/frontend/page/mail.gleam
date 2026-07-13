@@ -96,41 +96,27 @@ pub fn update(
         Ok(mailboxes) -> {
           #(Model(..model, mailboxes: mailboxes.mailboxes), effect.none())
         }
-        Error(_) -> {
+        Error(error) -> {
+          //   case error {
+          //     rsvp.HttpError(resp) -> {
+          //       case resp.status {
+          //         401 -> todo
+          //         _ -> todo
+          //       }
+          //       Nil
+          //     }
+          //     _ -> {
+          //       Nil
+          //     }
+          //   }
+
           #(Model(..model, error: option.Some(LoadingError)), effect.none())
         }
       }
     }
 
     InitialDataLoad -> {
-      let req =
-        utils.build_request(
-          method: http.Get,
-          path: "/mailboxes",
-          body: "",
-          include_auth: False,
-        )
-
-      case req {
-        Ok(built_request) -> {
-          let handler =
-            rsvp.expect_json(
-              decode_get_user_mailboxes_response_model(),
-              ApiInitialDataLoad,
-            )
-
-          #(
-            Model(..model, error: option.None, loading: True),
-            rsvp.send(built_request, handler),
-          )
-        }
-        Error(_) -> {
-          #(
-            Model(..model, error: option.Some(AuthError), loading: False),
-            effect.none(),
-          )
-        }
-      }
+      #(Model(..model, error: option.None, loading: True), initial_data_fetch())
     }
   }
 }
