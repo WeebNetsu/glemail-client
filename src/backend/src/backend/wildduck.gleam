@@ -391,16 +391,15 @@ pub fn create_user(
   }
 }
 
-pub fn get_user_mailboxes() -> Result(
-  GetUserMailboxesResponseModel,
-  WildDuckErrors,
-) {
+pub fn get_user_mailboxes(
+  email_id: String,
+) -> Result(GetUserMailboxesResponseModel, WildDuckErrors) {
   let env_values = util.get_env_values()
 
   let url =
     env_values.wildduck_api_url
     <> "/users/"
-    <> env_values.user_id
+    <> email_id
     <> "/mailboxes"
     <> util.url_query_builder([
       #("accessToken", env_values.wildduck_access_token),
@@ -426,6 +425,7 @@ pub fn get_user_mailboxes() -> Result(
 }
 
 pub fn get_messages_in_mailbox(
+  email_id email_id: String,
   mailbox_id mailbox_id: String,
   limit limit: Int,
   page page: Int,
@@ -435,7 +435,7 @@ pub fn get_messages_in_mailbox(
   let url =
     env_values.wildduck_api_url
     <> "/users/"
-    <> env_values.user_id
+    <> email_id
     <> "/mailboxes/"
     <> mailbox_id
     <> "/messages"
