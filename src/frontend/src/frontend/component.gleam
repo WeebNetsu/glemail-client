@@ -59,6 +59,16 @@ pub fn input(
   ])
 }
 
+pub fn link(
+  attributes attributes: List(attribute.Attribute(a)),
+  elements elements: List(element.Element(a)),
+) -> element.Element(a) {
+  html.a(
+    [attribute.class("underline-offset-4 hover:underline"), ..attributes],
+    elements,
+  )
+}
+
 pub fn button(
   attributes attributes: List(attribute.Attribute(a)),
   elements elements: List(element.Element(a)),
