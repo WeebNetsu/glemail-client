@@ -3,6 +3,7 @@ import frontend/page/login
 import frontend/page/mail
 import frontend/page/not_found
 import frontend/page/register
+import frontend/utils
 import gleam/fetch
 import gleam/uri
 import lustre
@@ -18,16 +19,9 @@ import shared/response_type
 // they are intercepted and your `update` function gets told about the new URL.
 import modem
 
-type Route {
-  Register
-  Login
-  Mail
-  NotFound(link: uri.Uri)
-}
-
 type Model {
   Model(
-    route: Route,
+    route: utils.Route,
     register_page: register.Model,
     login_page: login.Model,
     mail_page: mail.Model,
@@ -35,24 +29,24 @@ type Model {
 }
 
 type Message {
-  UserNavigatedTo(route: Route)
+  UserNavigatedTo(route: utils.Route)
   RegisterMsg(register.Message)
   LoginMsg(login.Message)
   MailMsg(mail.Message)
 }
 
-fn parse_route(link: uri.Uri) -> Route {
+fn parse_route(link: uri.Uri) -> utils.Route {
   case uri.path_segments(link.path) {
-    [] | [""] | ["register"] -> Register
-    ["login"] -> Login
-    ["mail"] -> Mail
+    [] | [""] | ["register"] -> utils.RegisterRoute
+    ["login"] -> utils.LoginRoute
+    ["mail"] -> utils.MailRoute
 
     // ["post", post_id] ->
     //   case int.parse(post_id) {
     //     Ok(post_id) -> PostById(id: post_id)
     //     Error(_) -> NotFound(link:)
     //   }
-    _ -> NotFound(link:)
+    _ -> utils.NotFoundRoute(link:)
   }
 }
 
@@ -65,7 +59,7 @@ pub type Msg {
 fn init(_flags) {
   let route = case modem.initial_uri() {
     Ok(uri) -> parse_route(uri)
-    Error(_) -> Register
+    Error(_) -> utils.RegisterRoute
   }
 
   let #(register_page_model, register_page_effect) = register.init()
@@ -142,7 +136,7 @@ fn view(model: Model) -> element.Element(Message) {
     ],
     [
       case model.route {
-        Register -> {
+        utils.RegisterRoute -> {
           html.div(
             [
               attribute.class("flex-1"),
@@ -151,7 +145,7 @@ fn view(model: Model) -> element.Element(Message) {
           )
           |> element.map(RegisterMsg)
         }
-        Login -> {
+        utils.LoginRoute -> {
           html.div(
             [
               attribute.class("flex-1"),
@@ -160,7 +154,7 @@ fn view(model: Model) -> element.Element(Message) {
           )
           |> element.map(LoginMsg)
         }
-        Mail -> {
+        utils.MailRoute -> {
           html.div(
             [
               attribute.class("flex-1"),
@@ -170,7 +164,7 @@ fn view(model: Model) -> element.Element(Message) {
           |> element.map(MailMsg)
         }
         // PostById(post_id) -> view_post(model, post_id)
-        NotFound(_) -> html.div([], not_found.view())
+        utils.NotFoundRoute(_) -> html.div([], not_found.view())
       },
     ],
   )

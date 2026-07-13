@@ -2,6 +2,7 @@ import frontend/config
 import frontend/cookies
 import gleam/http
 import gleam/http/request
+import gleam/uri
 
 pub fn build_request(
   method method: http.Method,
@@ -28,5 +29,21 @@ pub fn build_request(
       Error(Nil)
     }
     False, _ -> Ok(req)
+  }
+}
+
+pub type Route {
+  RegisterRoute
+  LoginRoute
+  MailRoute
+  NotFoundRoute(link: uri.Uri)
+}
+
+pub fn get_route_path(route: Route) -> String {
+  case route {
+    RegisterRoute -> "/register"
+    LoginRoute -> "/login"
+    MailRoute -> "/mail"
+    NotFoundRoute(_) -> "/404"
   }
 }
