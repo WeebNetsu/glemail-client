@@ -7,6 +7,7 @@ import gleam/dynamic/decode
 import gleam/http
 import gleam/json
 import gleam/list
+import gleam/option
 import gleam/result
 import gleam/string
 import gleam/time/duration
@@ -119,6 +120,56 @@ fn wisp_error_response(code: Int, reason: String) {
     ),
     code,
   )
+}
+
+fn send_mail(req: wisp.Request, token: JwtData) -> wisp.Response {
+  case req.method {
+    http.Post -> {
+      let request =
+        wildduck.submit_message_for_delivery(
+          email_id: token.email_id,
+          data: wildduck.SubmitMessageForDeliveryBody(
+            from: wildduck.FromToModel(
+              name: option.Some("Cookie Monster"),
+              address: "cookiemonster1@mail.teacher.com",
+            ),
+            subject: "Test Email",
+            text: "Hello World!",
+            to: [
+              wildduck.FromToModel(
+                name: option.Some("Jackie Chan"),
+                address: "jackiechan@mail.teacher.com",
+              ),
+            ],
+          ),
+        )
+
+      case request {
+        Ok(mailboxes) -> {
+          echo mailboxes
+
+          wisp.json_response("{\"success\": true}", 200)
+          //   list.map(mailboxes.results, fn(res) {
+          //     response_type.Mailbox(
+          //       id: res.id,
+          //       name: res.name,
+          //       total: res.total,
+          //       unseen: res.unseen,
+          //     )
+          //   })
+          //   |> response_type.GetMailboxesResponse()
+          //   |> response_type.encode_get_mailboxes_response_to_json()
+          //   |> json.to_string()
+          //   |> wisp.json_response(200)
+        }
+        Error(err) -> {
+          echo err
+          wisp_error_response(500, "Could not send email")
+        }
+      }
+    }
+    _ -> wisp.method_not_allowed([http.Get])
+  }
 }
 
 fn mailboxes(req: wisp.Request, token: JwtData) -> wisp.Response {

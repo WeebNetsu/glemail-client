@@ -68,6 +68,26 @@ pub type FromToModel {
   FromToModel(name: option.Option(String), address: String)
 }
 
+pub type SubmitMessageForDeliveryBody {
+  SubmitMessageForDeliveryBody(
+    from: FromToModel,
+    to: List(FromToModel),
+    text: String,
+    subject: String,
+  )
+}
+
+pub type SubmittedMessageModel {
+  SubmittedMessageModel(mailbox: String, id: Int, queue_id: String)
+}
+
+pub type SubmitMessageForDeliveryResponseModel {
+  SubmitMessageForDeliveryResponseModel(
+    success: Bool,
+    message: SubmittedMessageModel,
+  )
+}
+
 pub type MailboxModel {
   MailboxModel(
     id: String,
@@ -92,6 +112,33 @@ pub type CreateUserResponseModel {
 }
 
 // --------------- MARK: DECODERS
+
+fn decode_submitted_message_model() {
+  use mailbox <- decode.field("mailbox", decode.string)
+  use id <- decode.field("id", decode.int)
+  use queue_id <- decode.field("queueId", decode.string)
+
+  decode.success(SubmittedMessageModel(mailbox:, id:, queue_id:))
+}
+
+fn decode_submit_message_for_delivery_response_model() {
+  use success <- decode.field("success", decode.bool)
+  use message <- decode.field("message", decode_submitted_message_model())
+
+  decode.success(SubmitMessageForDeliveryResponseModel(success:, message:))
+}
+
+fn encode_submit_message_for_delivery_body_model(
+  data: SubmitMessageForDeliveryBody,
+) {
+  json.object([
+    #("from", encode_from_to_model(data.from)),
+    #("to", json.array(data.to, encode_from_to_model)),
+    #("text", json.string(data.text)),
+    #("subject", json.string(data.subject)),
+  ])
+}
+
 fn decode_create_user_response_model() {
   use success <- decode.field("success", decode.bool)
   use id <- decode.field("id", decode.string)
@@ -171,6 +218,13 @@ fn decode_from_to_model() -> decode.Decoder(FromToModel) {
   use address <- decode.field("address", decode.string)
 
   decode.success(FromToModel(name:, address:))
+}
+
+fn encode_from_to_model(data: FromToModel) -> json.Json {
+  json.object([
+    #("address", json.string(data.address)),
+    #("name", json.nullable(data.name, of: json.string)),
+  ])
 }
 
 fn decode_content_type_model() -> decode.Decoder(ContentTypeModel) {
@@ -462,4 +516,68 @@ pub fn get_messages_in_mailbox(
   )
 
   Ok(res)
+}
+
+pub fn submit_message_for_delivery(
+  email_id email_id: String,
+  data data: SubmitMessageForDeliveryBody,
+) -> Result(SubmitMessageForDeliveryResponseModel, WildDuckErrors) {
+  let env_values = util.get_env_values()
+
+  let url =
+    env_values.wildduck_api_url
+    <> "/users/"
+    <> email_id
+    <> "/submit"
+    <> util.url_query_builder([
+      #("accessToken", env_values.wildduck_access_token),
+    ])
+
+  use base_req <- result.try(
+    request.to(url)
+    |> result.map_error(fn(_) { RequestError }),
+  )
+
+  let req =
+    request.set_method(base_req, http.Post)
+    |> request.set_header("content-type", "application/json")
+    |> request.set_body(
+      json.to_string(encode_submit_message_for_delivery_body_model(data)),
+    )
+
+  // Send the HTTP request to the server
+  case httpc.send(req) {
+    Ok(resp) if resp.status == 200 -> {
+      use res <- result.try(
+        json.parse(
+          from: resp.body,
+          using: decode_submit_message_for_delivery_response_model(),
+        )
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      )
+
+      Ok(res)
+    }
+    Ok(resp) -> {
+      use res <- result.try(
+        json.parse(
+          from: resp.body,
+          using: decode_wildduck_error_response_model(),
+        )
+        |> result.map_error(fn(err) {
+          echo err
+          JsonParseError
+        }),
+      )
+
+      Error(res)
+    }
+    Error(_) -> {
+      io.println_error("Could not make get request")
+      Error(RequestError)
+    }
+  }
 }
