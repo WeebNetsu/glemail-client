@@ -2,12 +2,15 @@ import frontend/component
 import frontend/utils
 import gleam/dynamic/decode
 import gleam/http
+import gleam/http/response
 import gleam/list
 import gleam/option
+import gleam/result
 import lustre/attribute
 import lustre/effect
 import lustre/element
 import lustre/element/html
+import lustre/event
 import rsvp
 import shared/response_type
 
@@ -22,6 +25,8 @@ pub type Model {
     error: option.Option(MailErrors),
     loading: Bool,
     mailboxes: List(response_type.Mailbox),
+    send_email_to: String,
+    send_email_message: String,
   )
 }
 
@@ -30,8 +35,12 @@ pub type GetUserMailboxesResponseModel {
 }
 
 pub type Message {
-  InitialDataLoad
-  ApiInitialDataLoad(Result(GetUserMailboxesResponseModel, rsvp.Error(String)))
+  LoadUserMailboxes(Result(GetUserMailboxesResponseModel, rsvp.Error(String)))
+  LoadUserMailboxMessages(Result(response.Response(String), rsvp.Error(String)))
+  RegisterUpdatedSendEmailTo(String)
+  RegisterUpdatedSendEmailMessage(String)
+  SendEmail
+  SendEmailResponse(Result(response.Response(String), rsvp.Error(String)))
 }
 
 fn decode_mailbox_model() -> decode.Decoder(response_type.Mailbox) {
@@ -62,7 +71,7 @@ fn decode_get_user_mailboxes_response_model() -> decode.Decoder(
   decode.success(GetUserMailboxesResponseModel(mailboxes:))
 }
 
-fn initial_data_fetch() {
+fn fetch_user_mailboxes() {
   let req =
     utils.build_request(
       method: http.Get,
@@ -76,11 +85,33 @@ fn initial_data_fetch() {
       let handler =
         rsvp.expect_json(
           decode_get_user_mailboxes_response_model(),
-          ApiInitialDataLoad,
+          LoadUserMailboxes,
         )
       rsvp.send(built_request, handler)
     }
     Error(_) -> {
+      echo "Could not build request"
+      effect.none()
+    }
+  }
+}
+
+fn fetch_user_mailbox_messages(mailbox_id: String) {
+  let req =
+    utils.build_request(
+      method: http.Get,
+      path: "/mailboxes/" <> mailbox_id <> "/messages",
+      body: "",
+      include_auth: True,
+    )
+
+  case req {
+    Ok(built_request) -> {
+      let handler = rsvp.expect_any_response(LoadUserMailboxMessages)
+      rsvp.send(built_request, handler)
+    }
+    Error(_) -> {
+      echo "Could not build request"
       effect.none()
     }
   }
@@ -91,10 +122,19 @@ pub fn update(
   message: Message,
 ) -> #(Model, effect.Effect(Message)) {
   case message {
-    ApiInitialDataLoad(data) -> {
+    LoadUserMailboxes(data) -> {
       case data {
         Ok(mailboxes) -> {
-          #(Model(..model, mailboxes: mailboxes.mailboxes), effect.none())
+          case list.first(mailboxes.mailboxes) {
+            Ok(mailbox) -> #(
+              Model(..model, mailboxes: mailboxes.mailboxes),
+              fetch_user_mailbox_messages(mailbox.id),
+            )
+            _ -> #(
+              Model(..model, mailboxes: mailboxes.mailboxes),
+              effect.none(),
+            )
+          }
         }
         Error(error) -> {
           //   case error {
@@ -115,17 +155,63 @@ pub fn update(
       }
     }
 
-    InitialDataLoad -> {
-      #(Model(..model, error: option.None, loading: True), initial_data_fetch())
+    LoadUserMailboxMessages(data) -> {
+      echo data
+
+      #(Model(..model, error: option.None, loading: False), effect.none())
+    }
+
+    RegisterUpdatedSendEmailTo(send_email_to) -> {
+      #(Model(..model, error: option.None, send_email_to:), effect.none())
+    }
+
+    RegisterUpdatedSendEmailMessage(send_email_message) -> {
+      #(Model(..model, error: option.None, send_email_message:), effect.none())
+    }
+
+    SendEmail -> {
+      let req =
+        utils.build_request(
+          method: http.Post,
+          path: "/send",
+          body: "",
+          include_auth: True,
+        )
+
+      echo "next"
+
+      case req {
+        Ok(built_request) -> {
+          let handler = rsvp.expect_any_response(SendEmailResponse)
+
+          #(model, rsvp.send(built_request, handler))
+        }
+        Error(_) -> {
+          echo "Could not build request"
+          #(model, effect.none())
+        }
+      }
+    }
+
+    SendEmailResponse(val) -> {
+      echo val
+
+      #(model, effect.none())
     }
   }
 }
 
 pub fn init() -> #(Model, effect.Effect(Message)) {
   #(
-    Model(error: option.None, loading: False, mailboxes: []),
-    initial_data_fetch(),
-    //   effect.map(mail_page_effect, fn(a) {InitialDataLoad}),
+    Model(
+      error: option.None,
+      loading: False,
+      mailboxes: [],
+      send_email_message: "",
+      send_email_to: "",
+    ),
+    fetch_user_mailboxes(),
+    //   effect.map(mail_page_effect, fn(a) {LoadUserMailboxes}),
   )
 }
 
@@ -205,13 +291,13 @@ fn render_mail(
               component.div(
                 attributes: [
                   attribute.class("flex w-full items-end"),
-          ],
+                ],
                 elements: [
                   component.button(
                     attributes: [
                       attribute.class("w-3xs"),
                       event.on_click(SendEmail),
-      ],
+                    ],
                     elements: [
                       html.text("Send Email"),
                     ],
