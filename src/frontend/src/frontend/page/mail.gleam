@@ -134,8 +134,10 @@ fn render_mail(
   error_message error_message: element.Element(Message),
 ) {
   [
-    component.card(
-      attributes: [attribute.class("h-full! max-h-screen w-full")],
+    component.div(
+      attributes: [
+        attribute.class("h-full! max-h-screen w-full flex flex-col gap-2"),
+      ],
       elements: [
         component.div(
           attributes: [attribute.class("flex flex-row gap-2")],
@@ -164,12 +166,65 @@ fn render_mail(
               actions: [],
               title: option.None,
             ),
-            //   html.text("Some text should come here and stuff"),
           ],
         ),
+
+        component.card(
+          attributes: [],
+          elements: [
+            component.div(attributes: [], elements: [
+              component.div(
+                attributes: [
+                  attribute.class("flex gap-2 flex-row items-center"),
+                ],
+                elements: [
+                  html.label([attribute.for("sent-to-email-input")], [
+                    html.text("To:"),
+                  ]),
+                  component.input(attributes: [
+                    attribute.id("sent-to-email-input"),
+                    attribute.placeholder("jack@gmail.com"),
+                    attribute.value(model.send_email_to),
+                    event.on_input(RegisterUpdatedSendEmailTo),
+                  ]),
+                ],
+              ),
+
+              html.label([attribute.for("send-to-email-message")], [
+                html.text("Message:"),
+              ]),
+              component.textarea([
+                attribute.id("send-to-email-message"),
+                attribute.placeholder(
+                  "Hi,\n\nI would like to ask assistance on...",
+                ),
+                attribute.value(model.send_email_message),
+                event.on_input(RegisterUpdatedSendEmailMessage),
+              ]),
+
+              component.div(
+                attributes: [
+                  attribute.class("flex w-full items-end"),
+          ],
+                elements: [
+                  component.button(
+                    attributes: [
+                      attribute.class("w-3xs"),
+                      event.on_click(SendEmail),
       ],
-      actions: [],
-      title: option.None,
+                    elements: [
+                      html.text("Send Email"),
+                    ],
+                    variant: component.DefaultVariant,
+                  ),
+                ],
+              ),
+            ]),
+          ],
+          actions: [],
+          title: option.Some("Send Email"),
+        ),
+      ],
     ),
   ]
 }
