@@ -1,6 +1,5 @@
 import backend/db
 import backend/util
-import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
@@ -11,6 +10,7 @@ import gleam/io
 import gleam/json
 import gleam/option
 import gleam/result
+import shared/response_type
 
 // ------------ MARK: TYPES
 pub type WildDuckErrors {
@@ -20,58 +20,10 @@ pub type WildDuckErrors {
   WildduckError(error: String, code: String)
 }
 
-pub type GetMessagesInMailboxResponseModel {
-  GetMessagesInMailboxResponseModel(
-    success: Bool,
-    total: Int,
-    page: Int,
-    previous_cursor: option.Option(String),
-    next_cursor: option.Option(String),
-    results: List(MessageInMailboxModel),
-  )
-}
-
-pub type MessageInMailboxModel {
-  MessageInMailboxModel(
-    id: Int,
-    mailbox: String,
-    thread: String,
-    thread_message_count: option.Option(Int),
-    from: FromToModel,
-    to: List(FromToModel),
-    cc: List(FromToModel),
-    bcc: List(FromToModel),
-    subject: String,
-    date: String,
-    idate: option.Option(String),
-    size: Int,
-    draft: option.Option(Bool),
-    intro: option.Option(String),
-    attachments: Bool,
-    seen: Bool,
-    deleted: Bool,
-    flagged: Bool,
-    answered: Bool,
-    forwarded: Bool,
-    content_type: ContentTypeModel,
-    meta_data: option.Option(dynamic.Dynamic),
-    message_id: String,
-    references: List(String),
-  )
-}
-
-pub type ContentTypeModel {
-  ContentTypeModel(value: String, params: dynamic.Dynamic)
-}
-
-pub type FromToModel {
-  FromToModel(name: option.Option(String), address: String)
-}
-
 pub type SubmitMessageForDeliveryBody {
   SubmitMessageForDeliveryBody(
-    from: FromToModel,
-    to: List(FromToModel),
+    from: response_type.FromToModel,
+    to: List(response_type.FromToModel),
     text: String,
     subject: String,
   )
@@ -132,8 +84,8 @@ fn encode_submit_message_for_delivery_body_model(
   data: SubmitMessageForDeliveryBody,
 ) {
   json.object([
-    #("from", encode_from_to_model(data.from)),
-    #("to", json.array(data.to, encode_from_to_model)),
+    #("from", response_type.encode_from_to_model(data.from)),
+    #("to", json.array(data.to, response_type.encode_from_to_model)),
     #("text", json.string(data.text)),
     #("subject", json.string(data.subject)),
   ])
@@ -207,150 +159,6 @@ fn decode_get_user_mailboxes_response_model() -> decode.Decoder(
   use results <- decode.field("results", decode.list(decode_mailbox_model()))
 
   decode.success(GetUserMailboxesResponseModel(success:, results:))
-}
-
-fn decode_from_to_model() -> decode.Decoder(FromToModel) {
-  use name <- decode.optional_field(
-    "name",
-    option.None,
-    decode.optional(decode.string),
-  )
-  use address <- decode.field("address", decode.string)
-
-  decode.success(FromToModel(name:, address:))
-}
-
-fn encode_from_to_model(data: FromToModel) -> json.Json {
-  json.object([
-    #("address", json.string(data.address)),
-    #("name", json.nullable(data.name, of: json.string)),
-  ])
-}
-
-fn decode_content_type_model() -> decode.Decoder(ContentTypeModel) {
-  use value <- decode.field("value", decode.string)
-  use params <- decode.field("params", decode.dynamic)
-
-  decode.success(ContentTypeModel(value:, params:))
-}
-
-fn decode_message_in_mailbox_model() -> decode.Decoder(MessageInMailboxModel) {
-  use id <- decode.field("id", decode.int)
-  use mailbox <- decode.field("mailbox", decode.string)
-  use thread <- decode.field("thread", decode.string)
-  use from <- decode.field("from", decode_from_to_model())
-  use to <- decode.field("to", decode.list(decode_from_to_model()))
-  use cc <- decode.field("cc", decode.list(decode_from_to_model()))
-  use bcc <- decode.field("bcc", decode.list(decode_from_to_model()))
-  use subject <- decode.field("subject", decode.string)
-  use date <- decode.field("date", decode.string)
-  use intro <- decode.optional_field(
-    "intro",
-    option.None,
-    decode.optional(decode.string),
-  )
-  use attachments <- decode.field("attachments", decode.bool)
-  use seen <- decode.field("seen", decode.bool)
-  use deleted <- decode.field("deleted", decode.bool)
-  use flagged <- decode.field("flagged", decode.bool)
-  use answered <- decode.field("answered", decode.bool)
-  use forwarded <- decode.field("forwarded", decode.bool)
-  use size <- decode.field("size", decode.int)
-  use content_type <- decode.field("contentType", decode_content_type_model())
-  use message_id <- decode.field("messageId", decode.string)
-  use references <- decode.field("references", decode.list(decode.string))
-  use thread_message_count <- decode.optional_field(
-    "threadMessageCount",
-    option.None,
-    decode.optional(decode.int),
-  )
-  use idate <- decode.optional_field(
-    "idate",
-    option.None,
-    decode.optional(decode.string),
-  )
-  use draft <- decode.optional_field(
-    "draft",
-    option.None,
-    decode.optional(decode.bool),
-  )
-  use meta_data <- decode.optional_field(
-    "metaData",
-    option.None,
-    decode.optional(decode.dynamic),
-  )
-
-  decode.success(MessageInMailboxModel(
-    id:,
-    mailbox:,
-    thread:,
-    thread_message_count:,
-    from:,
-    to:,
-    cc:,
-    bcc:,
-    subject:,
-    date:,
-    idate:,
-    size:,
-    draft:,
-    intro:,
-    attachments:,
-    seen:,
-    deleted:,
-    flagged:,
-    answered:,
-    forwarded:,
-    content_type:,
-    meta_data:,
-    message_id:,
-    references:,
-  ))
-}
-
-fn decode_get_messages_in_mailbox_response_model() -> decode.Decoder(
-  GetMessagesInMailboxResponseModel,
-) {
-  use success <- decode.field("success", decode.bool)
-  use total <- decode.field("total", decode.int)
-  use page <- decode.field("page", decode.int)
-
-  // not really optional but brain tired
-  use previous_cursor <- decode.optional_field(
-    "previousCursor",
-    option.None,
-    decode_cursor(),
-  )
-  use next_cursor <- decode.optional_field(
-    "nextCursor",
-    option.None,
-    decode_cursor(),
-  )
-  use results <- decode.field(
-    "results",
-    decode.list(decode_message_in_mailbox_model()),
-  )
-
-  decode.success(GetMessagesInMailboxResponseModel(
-    success:,
-    total:,
-    page:,
-    previous_cursor:,
-    next_cursor:,
-    results:,
-  ))
-}
-
-fn decode_cursor() -> decode.Decoder(option.Option(String)) {
-  decode.one_of(decode.string |> decode.map(option.Some), or: [
-    decode.bool
-    |> decode.then(fn(value) {
-      case value {
-        False -> decode.success(option.None)
-        True -> decode.failure(option.Some("Expected false"), "")
-      }
-    }),
-  ])
 }
 
 // -------------- MARK: UTILS
@@ -483,7 +291,7 @@ pub fn get_messages_in_mailbox(
   mailbox_id mailbox_id: String,
   limit limit: Int,
   page page: Int,
-) -> Result(GetMessagesInMailboxResponseModel, WildDuckErrors) {
+) -> Result(response_type.GetMessagesInMailboxResponseModel, WildDuckErrors) {
   let env_values = util.get_env_values()
 
   let url =
@@ -507,7 +315,7 @@ pub fn get_messages_in_mailbox(
   use res <- result.try(
     json.parse(
       from: resp.body,
-      using: decode_get_messages_in_mailbox_response_model(),
+      using: response_type.decode_get_messages_in_mailbox_response_model(),
     )
     |> result.map_error(fn(err) {
       echo err

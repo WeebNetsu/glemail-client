@@ -129,16 +129,16 @@ fn send_mail(req: wisp.Request, token: JwtData) -> wisp.Response {
         wildduck.submit_message_for_delivery(
           email_id: token.email_id,
           data: wildduck.SubmitMessageForDeliveryBody(
-            from: wildduck.FromToModel(
+            from: response_type.FromToModel(
               name: option.Some("Cookie Monster"),
-              address: "cookiemonster1@mail.teacher.com",
+              address: "cookiemonster1@teacher.com",
             ),
             subject: "Test Email",
             text: "Hello World!",
             to: [
-              wildduck.FromToModel(
+              response_type.FromToModel(
                 name: option.Some("Jackie Chan"),
-                address: "jackiechan@mail.teacher.com",
+                address: "jackiechan@teacher.com",
               ),
             ],
           ),
@@ -189,21 +189,14 @@ fn get_mailbox_messages(
 
       case request {
         Ok(messages) -> {
-          echo messages
-
-          wisp.json_response("{\"success\": true}", 200)
-          //   list.map(mailboxes.results, fn(res) {
-          //     response_type.Mailbox(
-          //       id: res.id,
-          //       name: res.name,
-          //       total: res.total,
-          //       unseen: res.unseen,
-          //     )
-          //   })
-          //   |> response_type.GetMailboxesResponse()
-          //   |> response_type.encode_get_mailboxes_response_to_json()
-          //   |> json.to_string()
-          //   |> wisp.json_response(200)
+          wisp.json_response(
+            json.to_string(
+              response_type.encode_get_mailboxes_messages_response_to_json(
+                messages,
+              ),
+            ),
+            200,
+          )
         }
         Error(err) -> {
           echo err
@@ -418,10 +411,11 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
   // and means you don't have to learn or be limited by a special DSL.
   case wisp.path_segments(middleware_req) {
     ["mailboxes"] -> with_auth(middleware_req, mailboxes)
-    ["mailboxes", mailbox_id, "messages"] ->
+    ["mailboxes", mailbox_id, "messages"] -> {
       with_auth(middleware_req, fn(req, jwt) {
         get_mailbox_messages(req, jwt, mailbox_id)
       })
+    }
     ["send"] -> with_auth(middleware_req, send_mail)
     ["users"] -> users(middleware_req)
     ["users", "login"] -> users_login(middleware_req)

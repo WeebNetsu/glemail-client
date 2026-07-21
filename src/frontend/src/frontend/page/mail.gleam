@@ -5,7 +5,6 @@ import gleam/http
 import gleam/http/response
 import gleam/list
 import gleam/option
-import gleam/result
 import lustre/attribute
 import lustre/effect
 import lustre/element
@@ -18,6 +17,7 @@ pub type MailErrors {
   UnknownError
   AuthError
   LoadingError
+  FetchMessagesError
 }
 
 pub type Model {
@@ -25,6 +25,7 @@ pub type Model {
     error: option.Option(MailErrors),
     loading: Bool,
     mailboxes: List(response_type.Mailbox),
+    mailbox_messages: response_type.GetMessagesInMailboxResponseModel,
     send_email_to: String,
     send_email_message: String,
   )
@@ -36,7 +37,9 @@ pub type GetUserMailboxesResponseModel {
 
 pub type Message {
   LoadUserMailboxes(Result(GetUserMailboxesResponseModel, rsvp.Error(String)))
-  LoadUserMailboxMessages(Result(response.Response(String), rsvp.Error(String)))
+  LoadUserMailboxMessages(
+    Result(response_type.GetMessagesInMailboxResponseModel, rsvp.Error(String)),
+  )
   RegisterUpdatedSendEmailTo(String)
   RegisterUpdatedSendEmailMessage(String)
   SendEmail
@@ -107,7 +110,11 @@ fn fetch_user_mailbox_messages(mailbox_id: String) {
 
   case req {
     Ok(built_request) -> {
-      let handler = rsvp.expect_any_response(LoadUserMailboxMessages)
+      let handler =
+        rsvp.expect_json(
+          response_type.decode_get_messages_in_mailbox_response_model(),
+          LoadUserMailboxMessages,
+        )
       rsvp.send(built_request, handler)
     }
     Error(_) -> {
@@ -125,8 +132,10 @@ pub fn update(
     LoadUserMailboxes(data) -> {
       case data {
         Ok(mailboxes) -> {
-          case list.first(mailboxes.mailboxes) {
-            Ok(mailbox) -> #(
+          case mailboxes.mailboxes {
+            // for testing, we're just getting sent mail, but actually this should be
+            // based on the selected mailbox
+            [_, _, _, mailbox, ..] -> #(
               Model(..model, mailboxes: mailboxes.mailboxes),
               fetch_user_mailbox_messages(mailbox.id),
             )
@@ -156,9 +165,31 @@ pub fn update(
     }
 
     LoadUserMailboxMessages(data) -> {
-      echo data
+      case data {
+        Ok(mailbox_messages) -> {
+          #(
+            Model(
+              ..model,
+              error: option.None,
+              loading: False,
+              mailbox_messages:,
+            ),
+            effect.none(),
+          )
+        }
+        Error(reason) -> {
+          echo reason
 
-      #(Model(..model, error: option.None, loading: False), effect.none())
+          #(
+            Model(
+              ..model,
+              error: option.Some(FetchMessagesError),
+              loading: False,
+            ),
+            effect.none(),
+          )
+        }
+      }
     }
 
     RegisterUpdatedSendEmailTo(send_email_to) -> {
@@ -209,6 +240,14 @@ pub fn init() -> #(Model, effect.Effect(Message)) {
       mailboxes: [],
       send_email_message: "",
       send_email_to: "",
+      mailbox_messages: response_type.GetMessagesInMailboxResponseModel(
+        success: True,
+        total: 0,
+        page: 0,
+        previous_cursor: option.None,
+        next_cursor: option.None,
+        results: [],
+      ),
     ),
     fetch_user_mailboxes(),
     //   effect.map(mail_page_effect, fn(a) {LoadUserMailboxes}),
@@ -248,7 +287,39 @@ fn render_mail(
 
             component.card(
               attributes: [attribute.class("w-full")],
-              elements: [html.text("Main email stuff")],
+              elements: [
+                component.div(
+                  attributes: [attribute.class("w-full flex flex-col gap-2")],
+                  elements: list.map(model.mailbox_messages.results, fn(msg) {
+                    component.div(
+                      attributes: [
+                        attribute.class(
+                          "w-full flex flex-col gap-1 border rounded p-2 bg-zinc-800",
+                        ),
+                      ],
+                      elements: [
+                        html.p(
+                          [
+                            attribute.class("font-bold"),
+                          ],
+                          [html.text(msg.subject)],
+                        ),
+                        html.p(
+                          [
+                            attribute.class("text-xs italic text-foreground/50"),
+                          ],
+                          [
+                            html.text(case msg.intro {
+                              option.Some(val) -> val
+                              _ -> ""
+                            }),
+                          ],
+                        ),
+                      ],
+                    )
+                  }),
+                ),
+              ],
               actions: [],
               title: option.None,
             ),
@@ -334,6 +405,11 @@ pub fn view(model: Model) -> List(element.Element(Message)) {
         AuthError -> {
           component.error_p(attributes: [], elements: [
             html.text("Unable to authenticate requests"),
+          ])
+        }
+        FetchMessagesError -> {
+          component.error_p(attributes: [], elements: [
+            html.text("Unable to fetch mailbox messages"),
           ])
         }
       }
