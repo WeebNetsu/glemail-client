@@ -46,6 +46,7 @@ pub type Message {
   RegisterUpdatedSendEmailMessage(String)
   SendEmail
   SendEmailResponse(Result(response.Response(String), rsvp.Error(String)))
+  UpdateSelectedMailbox(mailbox_id: String)
 }
 
 fn decode_mailbox_model() -> decode.Decoder(response_type.Mailbox) {
@@ -175,18 +176,21 @@ pub fn update(
         }
       }
     }
+    UpdateSelectedMailbox(mailbox_id) -> {
+      #(model, fetch_user_mailbox_messages(mailbox_id))
+    }
     LoadUserMailboxes(data) -> {
       case data {
         Ok(mailboxes) -> {
           case mailboxes.mailboxes {
             // for testing, we're just getting sent mail, but actually this should be
             // based on the selected mailbox
-            [_, _, _, mailbox, ..] -> #(
+            [mailbox, _, _, _, ..] -> #(
               Model(..model, mailboxes: mailboxes.mailboxes),
               fetch_user_mailbox_messages(mailbox.id),
             )
             _ -> #(
-              Model(..model, mailboxes: mailboxes.mailboxes),
+              Model(..model, mailboxes: mailboxes.mailboxes, loading: False),
               effect.none(),
             )
           }
@@ -205,7 +209,10 @@ pub fn update(
           //     }
           //   }
 
-          #(Model(..model, error: option.Some(LoadingError)), effect.none())
+          #(
+            Model(..model, error: option.Some(LoadingError), loading: False),
+            effect.none(),
+          )
         }
       }
     }
@@ -213,15 +220,7 @@ pub fn update(
     LoadUserMailboxMessages(data) -> {
       case data {
         Ok(mailbox_messages) -> {
-          #(
-            Model(
-              ..model,
-              error: option.None,
-              loading: False,
-              mailbox_messages:,
-            ),
-            effect.none(),
-          )
+          #(Model(..model, error: option.None, mailbox_messages:), fetch_user())
         }
         Error(reason) -> {
           echo reason
@@ -321,7 +320,9 @@ fn render_mail(
                   attributes: [attribute.class("flex flex-col gap-2")],
                   elements: list.map(model.mailboxes, fn(mailbox) {
                     component.button(
-                      attributes: [],
+                      attributes: [
+                        event.on_click(UpdateSelectedMailbox(mailbox.id)),
+                      ],
                       elements: [html.text(mailbox.name)],
                       variant: component.DefaultVariant,
                     )
