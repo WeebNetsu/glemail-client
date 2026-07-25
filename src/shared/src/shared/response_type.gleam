@@ -32,6 +32,11 @@ pub type ErrorBody {
   ErrorBody(reason: String)
 }
 
+// https://docs.wildduck.email/docs/wildduck-api/get-user
+pub type UserModel {
+  UserModel(id: String, address: String)
+}
+
 pub type GetMessagesInMailboxResponseModel {
   GetMessagesInMailboxResponseModel(
     success: Bool,
@@ -370,6 +375,13 @@ pub fn decode_user_login_body() -> decode.Decoder(UserLoginBody) {
   use password <- decode.field("password", decode.string)
 
   decode.success(UserLoginBody(username:, password:))
+}
+
+pub fn encode_user_to_json(user: UserModel) -> json.Json {
+  json.object([
+    #("id", json.string(user.id)),
+    #("address", json.string(user.address)),
+  ])
 }
 
 pub fn encode_error_to_json(error: ErrorBody) -> json.Json {

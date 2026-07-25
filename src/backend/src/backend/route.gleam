@@ -131,7 +131,7 @@ fn send_mail(req: wisp.Request, token: JwtData) -> wisp.Response {
           data: wildduck.SubmitMessageForDeliveryBody(
             from: response_type.FromToModel(
               name: option.Some("Cookie Monster"),
-              address: "cookiemonster1@teacher.com",
+              address: "cookiemonster@teacher.com",
             ),
             subject: "Test Email",
             text: "Hello World!",
@@ -259,7 +259,36 @@ fn handle_create_user(body: String) -> Result(String, wisp.Response) {
   }
 }
 
-fn users(req: wisp.Request) -> wisp.Response {
+fn handle_get_user(token: JwtData) -> Result(wisp.Response, wisp.Response) {
+  case wildduck.get_user(token.email_id) {
+    // ok but only if response was considered successful
+    Ok(resp) if resp.success -> {
+      Ok(wisp.json_response(
+        json.to_string(
+          response_type.encode_user_to_json(response_type.UserModel(
+            id: resp.id,
+            address: resp.address,
+          )),
+        ),
+        200,
+      ))
+    }
+    // error but only if error was provided
+    Error(wildduck.WildduckError(error, _)) -> {
+      Error(wisp.json_response(
+        json.to_string(
+          response_type.encode_error_to_json(response_type.ErrorBody(
+            reason: error,
+          )),
+        ),
+        500,
+      ))
+    }
+    _ -> Error(wisp.internal_server_error())
+  }
+}
+
+fn users(req: wisp.Request, token: JwtData) -> wisp.Response {
   case req.method {
     http.Post -> {
       use body <- wisp.require_string_body(req)
@@ -269,6 +298,14 @@ fn users(req: wisp.Request) -> wisp.Response {
         Error(err) -> err
       }
     }
+
+    http.Get -> {
+      case handle_get_user(token) {
+        Ok(resp) -> resp
+        Error(err) -> err
+      }
+    }
+
     _ -> wisp.method_not_allowed(allowed: [http.Post])
   }
 }
@@ -417,7 +454,9 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
       })
     }
     ["send"] -> with_auth(middleware_req, send_mail)
-    ["users"] -> users(middleware_req)
+    ["users"] -> {
+      with_auth(middleware_req, fn(req, jwt) { users(req, jwt) })
+    }
     ["users", "login"] -> users_login(middleware_req)
 
     // This matches all other paths.

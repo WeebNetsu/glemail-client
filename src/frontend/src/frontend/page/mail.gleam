@@ -28,6 +28,7 @@ pub type Model {
     mailbox_messages: response_type.GetMessagesInMailboxResponseModel,
     send_email_to: String,
     send_email_message: String,
+    user: option.Option(response_type.UserModel),
   )
 }
 
@@ -37,6 +38,7 @@ pub type GetUserMailboxesResponseModel {
 
 pub type Message {
   LoadUserMailboxes(Result(GetUserMailboxesResponseModel, rsvp.Error(String)))
+  LoadUser(Result(response_type.UserModel, rsvp.Error(String)))
   LoadUserMailboxMessages(
     Result(response_type.GetMessagesInMailboxResponseModel, rsvp.Error(String)),
   )
@@ -74,6 +76,13 @@ fn decode_get_user_mailboxes_response_model() -> decode.Decoder(
   decode.success(GetUserMailboxesResponseModel(mailboxes:))
 }
 
+fn decode_get_user_response_model() -> decode.Decoder(response_type.UserModel) {
+  use id <- decode.field("id", decode.string)
+  use address <- decode.field("address", decode.string)
+
+  decode.success(response_type.UserModel(id:, address:))
+}
+
 fn fetch_user_mailboxes() {
   let req =
     utils.build_request(
@@ -90,6 +99,27 @@ fn fetch_user_mailboxes() {
           decode_get_user_mailboxes_response_model(),
           LoadUserMailboxes,
         )
+      rsvp.send(built_request, handler)
+    }
+    Error(_) -> {
+      echo "Could not build request"
+      effect.none()
+    }
+  }
+}
+
+fn fetch_user() {
+  let req =
+    utils.build_request(
+      method: http.Get,
+      path: "/users",
+      body: "",
+      include_auth: True,
+    )
+
+  case req {
+    Ok(built_request) -> {
+      let handler = rsvp.expect_json(decode_get_user_response_model(), LoadUser)
       rsvp.send(built_request, handler)
     }
     Error(_) -> {
@@ -129,6 +159,22 @@ pub fn update(
   message: Message,
 ) -> #(Model, effect.Effect(Message)) {
   case message {
+    LoadUser(user) -> {
+      case user {
+        Ok(user) -> {
+          #(
+            Model(..model, user: option.Some(user), loading: False),
+            effect.none(),
+          )
+        }
+        Error(_) -> {
+          #(
+            Model(..model, error: option.Some(LoadingError), loading: False),
+            effect.none(),
+          )
+        }
+      }
+    }
     LoadUserMailboxes(data) -> {
       case data {
         Ok(mailboxes) -> {
@@ -248,6 +294,7 @@ pub fn init() -> #(Model, effect.Effect(Message)) {
         next_cursor: option.None,
         results: [],
       ),
+      user: option.None,
     ),
     fetch_user_mailboxes(),
     //   effect.map(mail_page_effect, fn(a) {LoadUserMailboxes}),
@@ -330,6 +377,16 @@ fn render_mail(
           attributes: [],
           elements: [
             component.div(attributes: [], elements: [
+              html.p([], [
+                html.text(
+                  "From: "
+                  <> case model.user {
+                    option.Some(user) -> user.address
+                    option.None -> "Error Fetching User Information"
+                  },
+                ),
+              ]),
+
               component.div(
                 attributes: [
                   attribute.class("flex gap-2 flex-row items-center"),

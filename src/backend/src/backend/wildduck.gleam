@@ -59,6 +59,10 @@ pub type GetUserMailboxesResponseModel {
   GetUserMailboxesResponseModel(success: Bool, results: List(MailboxModel))
 }
 
+pub type GetUserResponseModel {
+  GetUserResponseModel(success: Bool, id: String, address: String)
+}
+
 pub type CreateUserResponseModel {
   CreateUserResponseModel(success: Bool, id: String)
 }
@@ -159,6 +163,14 @@ fn decode_get_user_mailboxes_response_model() -> decode.Decoder(
   use results <- decode.field("results", decode.list(decode_mailbox_model()))
 
   decode.success(GetUserMailboxesResponseModel(success:, results:))
+}
+
+fn decode_get_user_response_model() -> decode.Decoder(GetUserResponseModel) {
+  use success <- decode.field("success", decode.bool)
+  use id <- decode.field("id", decode.string)
+  use address <- decode.field("address", decode.string)
+
+  decode.success(GetUserResponseModel(success:, id:, address:))
 }
 
 // -------------- MARK: UTILS
@@ -277,6 +289,35 @@ pub fn get_user_mailboxes(
       from: resp.body,
       using: decode_get_user_mailboxes_response_model(),
     )
+    |> result.map_error(fn(err) {
+      echo err
+      JsonParseError
+    }),
+  )
+
+  Ok(res)
+}
+
+pub fn get_user(
+  email_id: String,
+) -> Result(GetUserResponseModel, WildDuckErrors) {
+  let env_values = util.get_env_values()
+
+  let url =
+    env_values.wildduck_api_url
+    <> "/users/"
+    <> email_id
+    <> util.url_query_builder([
+      #("accessToken", env_values.wildduck_access_token),
+    ])
+
+  use resp <- result.try(
+    // map error into my own custom type
+    http_get_request(url) |> result.map_error(fn(_) { RequestError }),
+  )
+
+  use res <- result.try(
+    json.parse(from: resp.body, using: decode_get_user_response_model())
     |> result.map_error(fn(err) {
       echo err
       JsonParseError
