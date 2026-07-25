@@ -307,11 +307,15 @@ fn render_mail(
   [
     component.div(
       attributes: [
-        attribute.class("h-full! max-h-screen w-full flex flex-col gap-2"),
+        attribute.class(
+          "h-full! max-h-screen w-full flex flex-col gap-2 h-screen",
+        ),
       ],
       elements: [
         component.div(
-          attributes: [attribute.class("flex flex-row gap-2")],
+          attributes: [
+            attribute.class("flex flex-row gap-2 h-full"),
+          ],
           elements: [
             component.card(
               attributes: [attribute.class("w-xs")],
@@ -334,10 +338,12 @@ fn render_mail(
             ),
 
             component.card(
-              attributes: [attribute.class("w-full")],
+              attributes: [attribute.class("w-full overflow-y-scroll")],
               elements: [
                 component.div(
-                  attributes: [attribute.class("w-full flex flex-col gap-2")],
+                  attributes: [
+                    attribute.class("w-full flex flex-col gap-2"),
+                  ],
                   elements: list.map(model.mailbox_messages.results, fn(msg) {
                     component.div(
                       attributes: [
