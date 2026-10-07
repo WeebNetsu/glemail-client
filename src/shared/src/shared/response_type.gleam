@@ -82,7 +82,7 @@ pub type MessageInMailboxModel {
 // }
 
 pub type FromToModel {
-  FromToModel(name: option.Option(String), address: String)
+  FromToModel(name: String, address: String)
 }
 
 // MARK: Encode/Decode
@@ -138,7 +138,7 @@ pub fn encode_get_mailboxes_response_to_json(
 pub fn encode_from_to_model(data: FromToModel) -> json.Json {
   json.object([
     #("address", json.string(data.address)),
-    #("name", json.nullable(data.name, of: json.string)),
+    #("name", json.string(data.name)),
   ])
 }
 
@@ -205,11 +205,7 @@ pub fn encode_get_mailboxes_messages_response_to_json(
 }
 
 pub fn decode_from_to_model() -> decode.Decoder(FromToModel) {
-  use name <- decode.optional_field(
-    "name",
-    option.None,
-    decode.optional(decode.string),
-  )
+  use name <- decode.field("name", decode.string)
   use address <- decode.field("address", decode.string)
 
   decode.success(FromToModel(name:, address:))
