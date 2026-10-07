@@ -20,6 +20,10 @@ pub type CreateUserBody {
   CreateUserBody(username: String, password: String)
 }
 
+pub type SendMailBody {
+  SendMailBody(to: String, subject: String, text: String)
+}
+
 pub type UserLoginBody {
   UserLoginBody(username: String, password: String)
 }
@@ -357,6 +361,24 @@ pub fn decode_create_user_body() -> decode.Decoder(CreateUserBody) {
   use password <- decode.field("password", decode.string)
 
   decode.success(CreateUserBody(username:, password:))
+}
+
+// pub fn encode_send_mail_body_to_json(body: SendMailBody) -> json.Json {
+//   json.object([
+//     #("from", json.string(body.from)),
+//     #("to", json.string(body.to)),
+//     #("subject", json.string(body.subject)),
+//     #("text", json.string(body.text)),
+//   ])
+// }
+
+pub fn decode_send_mail_body() -> decode.Decoder(SendMailBody) {
+  //   use from <- decode.field("from", decode.string)
+  use to <- decode.field("to", decode.string)
+  use subject <- decode.field("subject", decode.string)
+  use text <- decode.field("text", decode.string)
+
+  decode.success(SendMailBody(to:, subject:, text:))
 }
 
 pub fn encode_user_login_body_to_json(body: UserLoginBody) -> json.Json {

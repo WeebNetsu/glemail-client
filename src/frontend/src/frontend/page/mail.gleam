@@ -3,6 +3,7 @@ import frontend/utils
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/response
+import gleam/json
 import gleam/list
 import gleam/option
 import lustre/attribute
@@ -27,6 +28,7 @@ pub type Model {
     mailboxes: List(response_type.Mailbox),
     mailbox_messages: response_type.GetMessagesInMailboxResponseModel,
     send_email_to: String,
+    send_email_subject: String,
     send_email_message: String,
     user: option.Option(response_type.UserModel),
   )
@@ -44,6 +46,7 @@ pub type Message {
   )
   RegisterUpdatedSendEmailTo(String)
   RegisterUpdatedSendEmailMessage(String)
+  RegisterUpdatedSendEmailSubject(String)
   SendEmail
   SendEmailResponse(Result(response.Response(String), rsvp.Error(String)))
   UpdateSelectedMailbox(mailbox_id: String)
@@ -245,12 +248,22 @@ pub fn update(
       #(Model(..model, error: option.None, send_email_message:), effect.none())
     }
 
+    RegisterUpdatedSendEmailSubject(send_email_subject) -> {
+      #(Model(..model, error: option.None, send_email_subject:), effect.none())
+    }
+
     SendEmail -> {
       let req =
         utils.build_request(
           method: http.Post,
           path: "/send",
-          body: "",
+          body: json.to_string(
+            json.object([
+              #("to", json.string(model.send_email_to)),
+              #("subject", json.string(model.send_email_subject)),
+              #("text", json.string(model.send_email_message)),
+            ]),
+          ),
           include_auth: True,
         )
 
@@ -285,6 +298,7 @@ pub fn init() -> #(Model, effect.Effect(Message)) {
       mailboxes: [],
       send_email_message: "",
       send_email_to: "",
+      send_email_subject: "",
       mailbox_messages: response_type.GetMessagesInMailboxResponseModel(
         success: True,
         total: 0,
@@ -410,6 +424,16 @@ fn render_mail(
                   ]),
                 ],
               ),
+
+              html.label([attribute.for("send-to-email-subject")], [
+                html.text("Subject:"),
+              ]),
+              component.input([
+                attribute.id("send-to-email-subject"),
+                attribute.placeholder("Has my order been placed yet?"),
+                attribute.value(model.send_email_subject),
+                event.on_input(RegisterUpdatedSendEmailSubject),
+              ]),
 
               html.label([attribute.for("send-to-email-message")], [
                 html.text("Message:"),

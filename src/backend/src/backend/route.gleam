@@ -122,49 +122,70 @@ fn wisp_error_response(code: Int, reason: String) {
   )
 }
 
+fn handle_send_mail(body: String, user: db.User) {
+  use parsed_body <- result.try(
+    json.parse(body, response_type.decode_send_mail_body())
+    |> result.map_error(fn(_) { wisp.internal_server_error() }),
+  )
+
+  let request =
+    wildduck.submit_message_for_delivery(
+      email_id: user.email_id,
+      data: wildduck.SubmitMessageForDeliveryBody(
+        from: response_type.FromToModel(
+          name: user.username,
+          // option.Some("Cookie Monster"),
+          address: user.username <> "@teacher.com",
+        ),
+        subject: parsed_body.subject,
+        text: parsed_body.text,
+        to: [
+          response_type.FromToModel(
+            name: case list.first(string.split(parsed_body.to, on: "@")) {
+              Ok(username) -> username
+              Error(_) -> "Anon"
+            },
+            // option.Some("Jackie Chan"),
+            address: parsed_body.to,
+          ),
+        ],
+      ),
+    )
+
+  case request {
+    Ok(mailboxes) -> {
+      echo mailboxes
+
+      Ok(wisp.json_response("{\"success\": true}", 200))
+    }
+    Error(err) -> {
+      echo err
+      Error(wisp_error_response(500, "Could not send email"))
+    }
+  }
+}
+
 fn send_mail(req: wisp.Request, token: JwtData) -> wisp.Response {
   case req.method {
     http.Post -> {
-      let request =
-        wildduck.submit_message_for_delivery(
-          email_id: token.email_id,
-          data: wildduck.SubmitMessageForDeliveryBody(
-            from: response_type.FromToModel(
-              name: option.Some("Cookie Monster"),
-              address: "cookiemonster@teacher.com",
-            ),
-            subject: "Test Email",
-            text: "Hello World!",
-            to: [
-              response_type.FromToModel(
-                name: option.Some("Jackie Chan"),
-                address: "jackiechan@teacher.com",
-              ),
-            ],
-          ),
-        )
+      case db.get_user_by_email_id(token.email_id) {
+        Ok(user) -> {
+          use body <- wisp.require_string_body(req)
 
-      case request {
-        Ok(mailboxes) -> {
-          echo mailboxes
-
-          wisp.json_response("{\"success\": true}", 200)
-          //   list.map(mailboxes.results, fn(res) {
-          //     response_type.Mailbox(
-          //       id: res.id,
-          //       name: res.name,
-          //       total: res.total,
-          //       unseen: res.unseen,
-          //     )
-          //   })
-          //   |> response_type.GetMailboxesResponse()
-          //   |> response_type.encode_get_mailboxes_response_to_json()
-          //   |> json.to_string()
-          //   |> wisp.json_response(200)
+          case handle_send_mail(body, user) {
+            Ok(success) -> success
+            Error(err) -> err
+          }
         }
         Error(err) -> {
-          echo err
-          wisp_error_response(500, "Could not send email")
+          case err {
+            db.NotFoundError -> {
+              wisp_error_response(404, "Account not found")
+            }
+            db.SqliteError(msg) -> {
+              wisp_error_response(500, msg)
+            }
+          }
         }
       }
     }

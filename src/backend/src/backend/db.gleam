@@ -106,3 +106,28 @@ pub fn get_user(username: String) {
     Error(err) -> Error(SqliteError(err.message))
   }
 }
+
+pub fn get_user_by_email_id(email_id: String) {
+  use conn <- sqlight.with_connection(database_file)
+  let sql =
+    "SELECT * FROM "
+    <> get_table_name(UsersTable)
+    <> " WHERE email_id = "
+    <> add_quotes(email_id)
+    <> " LIMIT 1;"
+
+  let users_list =
+    sqlight.query(sql, on: conn, with: [], expecting: user_decoder())
+
+  case users_list {
+    Ok(users) -> {
+      case users {
+        [user] -> {
+          Ok(user)
+        }
+        _ -> Error(NotFoundError)
+      }
+    }
+    Error(err) -> Error(SqliteError(err.message))
+  }
+}
