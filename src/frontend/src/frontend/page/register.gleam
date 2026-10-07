@@ -196,7 +196,7 @@ pub fn update(
       #(
         Model(..model, error: option.None, success: False, loading: True),
         rsvp.post(
-          config.api.url <> "/users",
+          config.api.url <> "/users/register",
           json.object([
             #("username", json.string(model.username)),
             #("password", json.string(model.password)),

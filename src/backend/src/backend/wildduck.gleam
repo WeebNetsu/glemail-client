@@ -259,7 +259,7 @@ pub fn create_user(
       Error(res)
     }
     Error(_) -> {
-      io.println_error("Could not make get request")
+      io.println_error("Could not create account")
       Error(RequestError)
     }
   }

@@ -310,6 +310,21 @@ fn users(req: wisp.Request, token: JwtData) -> wisp.Response {
   }
 }
 
+fn users_register(req: wisp.Request) -> wisp.Response {
+  case req.method {
+    http.Post -> {
+      use body <- wisp.require_string_body(req)
+
+      case handle_create_user(body) {
+        Ok(_) -> wisp.ok()
+        Error(err) -> err
+      }
+    }
+
+    _ -> wisp.method_not_allowed(allowed: [http.Post])
+  }
+}
+
 fn handle_user_login(body: String) -> Result(String, wisp.Response) {
   use parsed_body <- result.try(
     json.parse(body, response_type.decode_user_login_body())
@@ -457,6 +472,7 @@ pub fn handle_request(req: wisp.Request) -> wisp.Response {
     ["users"] -> {
       with_auth(middleware_req, fn(req, jwt) { users(req, jwt) })
     }
+    ["users", "register"] -> users_register(middleware_req)
     ["users", "login"] -> users_login(middleware_req)
 
     // This matches all other paths.
