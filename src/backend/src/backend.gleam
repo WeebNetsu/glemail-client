@@ -27,7 +27,7 @@ pub fn main() {
       let assert Ok(_) =
         wisp_mist.handler(route.handle_request, env_values.secret_key)
         |> mist.new
-        |> mist.port(8080)
+        |> mist.port(9191)
         |> mist.start
 
       // The web server runs in new Erlang process, so put this one to sleep while
